@@ -1,0 +1,47 @@
+[
+  {
+    "player_id": "SPO000001",
+    "age": 58,
+    "gender": "Female",
+    "latency_ms": 2081,
+    "error_rate": 75.08,
+    "cpu_usage": 56,
+    "duration": 382,
+    "esports_frequency": 61,
+    "esports_total": 15654.65,
+    "esports_ratio": 0.38,
+    "esports_value": 41.7,
+    "esports_count": 457,
+    "esports_status": "Approved"
+  },
+  {
+    "player_id": "SPO000002",
+    "age": 56,
+    "gender": "Male",
+    "latency_ms": 2282,
+    "error_rate": 55.61,
+    "cpu_usage": 56,
+    "duration": 818,
+    "esports_frequency": 67,
+    "esports_total": 22831.46,
+    "esports_ratio": 0.68,
+    "esports_value": 62.4,
+    "esports_count": 495,
+    "esports_status": "Rejected"
+  },
+  {
+    "player_id": "SPO000003",
+    "age": 40,
+    "gender": "Female",
+    "latency_ms": 1543,
+    "error_rate": 50.95,
+    "cpu_usage": 45,
+    "duration": 995,
+    "esports_frequency": 55,
+    "esports_total": 15009.42,
+    "esports_ratio": 0.3,
+    "esports_value": 50.77,
+    "esports_count": 555,
+    "esports_status": "Rejected"
+  }
+]

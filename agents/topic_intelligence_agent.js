@@ -1,39 +1,3 @@
-const DOMAIN_KEYWORDS = {
-  medical: ['diabetes', 'health', 'medical', 'patient', 'disease', 'heart', 'hospital', 'clinical', 'diagnosis', 'blood', 'cancer', 'tumor', 'stroke', 'hypertension', 'cholesterol'],
-  financial: ['loan', 'credit', 'fraud', 'financial', 'bank', 'payment', 'mortgage', 'insurance', 'transaction', 'stock', 'investment', 'risk', 'default'],
-  education: ['student', 'education', 'school', 'grade', 'gpa', 'exam', 'academic', 'university', 'learning', 'performance', 'college', 'teacher'],
-  retail: ['retail', 'customer', 'shopping', 'sales', 'purchase', 'product', 'store', 'cart', 'checkout', 'market', 'inventory', 'churn'],
-  environmental: ['pollution', 'climate', 'environmental', 'air', 'weather', 'temperature', 'emission', 'carbon', 'sustainability', 'aqi', 'wildfire', 'flood'],
-  social: ['social', 'twitter', 'instagram', 'influencer', 'engagement', 'followers', 'likes', 'posts', 'media', 'tiktok', 'sentiment'],
-  hr: ['employee', 'hr', 'hiring', 'recruitment', 'salary', 'performance', 'turnover', 'workforce', 'vacation', 'leave', 'attrition', 'recruitment'],
-  telecom: ['telecom', 'mobile', 'phone', 'call', 'data', 'subscription', 'plan', 'network', 'churn', 'usage', 'wireless', 'carrier'],
-  ecommerce: ['ecommerce', 'order', 'shipping', 'delivery', 'product', 'review', 'rating', 'cart', 'wishlist', 'purchase', 'amazon', 'shopify'],
-  agriculture: ['agriculture', 'crop', 'farm', 'harvest', 'yield', 'soil', 'irrigation', 'livestock', 'production', 'farming', 'livestock'],
-  technology: ['software', 'technology', 'code', 'bug', 'repository', 'developer', 'commit', 'deployment', 'server', 'cloud', 'devops', 'infrastructure'],
-  sports: ['sports', 'player', 'team', 'game', 'performance', 'match', 'score', 'esports', 'athlete', 'tournament'],
-  engineering: ['engineering', 'sensor', 'machine', 'maintenance', 'failure', 'manufacturing', 'quality', 'production', 'assembly'],
-  transportation: ['transportation', 'vehicle', 'traffic', 'accident', 'route', 'logistics', 'shipping', 'delivery', 'fleet'],
-  scientific: ['scientific', 'research', 'experiment', 'laboratory', 'analysis', 'measurement', 'observation', 'study']
-};
-
-const DOMAIN_SUBDOMAINS = {
-  medical: ['diabetes', 'heart disease', 'cancer', 'mental health', 'clinical diagnostics', 'public health'],
-  financial: ['credit scoring', 'fraud detection', 'loan default', 'risk assessment', 'insurance underwriting'],
-  education: ['student performance', 'exam scores', 'course completion', 'learning outcomes'],
-  retail: ['customer churn', 'market basket', 'product recommendation', 'sales forecasting'],
-  environmental: ['air quality', 'climate change', 'wildfire risk', 'water quality', 'pollution monitoring'],
-  social: ['sentiment analysis', 'influencer marketing', 'engagement prediction', 'content virality'],
-  hr: ['employee attrition', 'talent acquisition', 'performance prediction', 'workforce analytics'],
-  telecom: ['customer churn', 'usage analytics', 'network optimization', 'service quality'],
-  ecommerce: ['customer behavior', 'product recommendation', 'demand forecasting', 'return prediction'],
-  agriculture: ['crop yield', 'soil analysis', 'livestock management', 'precision farming'],
-  technology: ['software quality', 'infrastructure monitoring', 'security analytics', 'code quality'],
-  sports: ['player performance', 'team strategy', 'injury prediction', 'game outcome'],
-  engineering: ['predictive maintenance', 'quality control', 'process optimization'],
-  transportation: ['traffic prediction', 'accident analysis', 'route optimization', 'fleet management'],
-  scientific: ['experimental analysis', 'genomic research', 'physics measurement']
-};
-
 function process(context) {
   const topic = context.topic;
   
@@ -49,7 +13,11 @@ function process(context) {
     key_entities: analysis.key_entities,
     temporal: analysis.temporal,
     geospatial: analysis.geospatial,
-    search_queries: analysis.search_queries,
+    search_queries: [
+      `${topic} dataset machine learning`,
+      `${topic} UCI kaggle dataset`,
+      `${topic} open source data`
+    ],
     logs: [...context.logs, {
       timestamp: new Date().toISOString(),
       event: 'topic_intelligence_complete',
@@ -62,32 +30,14 @@ function analyzeTopic(topic) {
   const topicLower = topic.toLowerCase();
   const words = topicLower.split(/\s+/).filter(w => w.length > 2);
   
-  let domain = 'other';
-  let maxScore = 0;
-  
-  for (const [d, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
-    let score = 0;
-    for (const keyword of keywords) {
-      for (const word of words) {
-        if (word.includes(keyword) || keyword.includes(word)) {
-          score++;
-        }
-      }
-    }
-    if (score > maxScore) {
-      maxScore = score;
-      domain = d;
-    }
-  }
-  
-  const subdomain = detectSubdomain(topicLower, domain);
-  const task_type = detectTaskType(topicLower);
-  const target_column = generateTargetColumn(topicLower, task_type);
-  const target_values = generateTargetValues(topicLower, task_type, target_column);
-  const key_entities = extractKeyEntities(topicLower, domain);
-  const temporal = detectTemporal(topicLower);
-  const geospatial = detectGeospatial(topicLower);
-  const search_queries = generateSearchQueries(topic);
+  const domain = inferDomain(words);
+  const subdomain = inferSubdomain(words, domain);
+  const task_type = inferTaskType(topicLower);
+  const target_column = inferTargetColumn(words, domain, task_type);
+  const target_values = inferTargetValues(target_column, task_type);
+  const key_entities = extractEntities(words, domain);
+  const temporal = inferTemporal(words);
+  const geospatial = inferGeospatial(words);
   
   return {
     domain,
@@ -97,150 +47,204 @@ function analyzeTopic(topic) {
     target_values,
     key_entities,
     temporal,
-    geospatial,
-    search_queries
+    geospatial
   };
 }
 
-function detectSubdomain(topic, domain) {
-  const subdomains = DOMAIN_SUBDOMAINS[domain] || [];
+function inferDomain(words) {
+  const domainIndicators = {
+    medical: ['health', 'medical', 'patient', 'doctor', 'hospital', 'clinic', 'disease', 'diagnosis', 'treatment', 'symptom', 'clinical', 'therapy', 'diabetes', 'cancer', 'heart', 'blood', 'glucose', 'cholesterol', 'blood_pressure', 'bmi', 'insulin'],
+    financial: ['bank', 'finance', 'credit', 'loan', 'mortgage', 'investment', 'stock', 'market', 'fraud', 'transaction', 'payment', 'insurance', 'risk'],
+    education: ['school', 'student', 'university', 'college', 'grade', 'gpa', 'score', 'exam', 'course', 'teacher', 'learning', 'academic', 'education'],
+    retail: ['store', 'shop', 'customer', 'purchase', 'sale', 'product', 'retail', 'transaction', 'cart', 'order', 'inventory', 'market'],
+    environmental: ['climate', 'weather', 'temperature', 'pollution', 'air', 'water', 'soil', 'carbon', 'emission', 'environmental', 'sustainable', 'green'],
+    social: ['social', 'twitter', 'instagram', 'facebook', 'user', 'post', 'follow', 'engagement', 'influencer', 'media', 'content'],
+    hr: ['employee', 'hire', 'recruit', 'job', 'career', 'salary', 'performance', 'workforce', 'talent', 'organization', 'management'],
+    telecom: ['phone', 'mobile', 'call', 'data', 'network', 'carrier', 'wireless', 'cellular', 'subscription', 'telecom'],
+    ecommerce: ['online', 'shop', 'order', 'delivery', 'shipping', 'product', 'review', 'rating', 'amazon', 'website'],
+    agriculture: ['farm', 'crop', 'harvest', 'soil', 'plant', 'yield', 'agriculture', 'livestock', 'irrigation', 'farmer'],
+    technology: ['software', 'code', 'developer', 'bug', 'server', 'cloud', 'deployment', 'api', 'database', 'programming'],
+    sports: ['player', 'team', 'game', 'match', 'score', 'sport', 'athlete', 'tournament', 'league', 'championship'],
+    engineering: ['machine', 'engineer', 'manufacture', 'quality', 'production', 'factory', 'maintenance', 'equipment'],
+    transportation: ['vehicle', 'driver', 'traffic', 'route', 'transport', 'delivery', 'logistics', 'fleet', 'shipping'],
+    scientific: ['research', 'experiment', 'science', 'laboratory', 'scientific', 'hypothesis', 'analysis', 'study']
+  };
   
-  for (const sd of subdomains) {
-    const sdLower = sd.toLowerCase();
-    for (const word of topic.split(/\s+/)) {
-      if (sdLower.includes(word) || word.includes(sdLower.replace(/\s+/g, ''))) {
-        return sd;
+  const scores = {};
+  
+  for (const [domain, indicators] of Object.entries(domainIndicators)) {
+    scores[domain] = 0;
+    for (const word of words) {
+      for (const indicator of indicators) {
+        if (word.includes(indicator) || indicator.includes(word)) {
+          scores[domain] += indicator.length / word.length;
+        }
       }
     }
   }
   
-  const word1 = topic.split(/\s+/)[0] || 'general';
-  const word2 = topic.split(/\s+/)[1] || 'data';
-  return `${word1} ${word2}`;
+  let bestDomain = 'technology';
+  let bestScore = 0;
+  
+  for (const [domain, score] of Object.entries(scores)) {
+    if (score > bestScore) {
+      bestScore = score;
+      bestDomain = domain;
+    }
+  }
+  
+  return bestDomain;
 }
 
-function detectTaskType(topic) {
+function inferSubdomain(words, domain) {
+  if (words.length === 0) return domain;
+  
+  const mainWord = words[0];
+  
+  const subdomains = {
+    medical: ['cardiology', 'diabetes', 'oncology', 'neurology', 'psychiatry', 'pediatrics', 'surgery', 'radiology'],
+    financial: ['banking', 'investment', 'insurance', 'trading', 'credit', 'lending', 'risk'],
+    education: ['primary', 'secondary', 'higher', 'vocational', 'online', 'adult'],
+    retail: ['e-commerce', 'brick', 'fashion', 'grocery', 'electronics'],
+    environmental: ['climate', 'pollution', 'conservation', 'energy', 'waste'],
+    social: ['marketing', 'engagement', 'analytics', 'influencer'],
+    hr: ['recruiting', 'training', 'compensation', 'performance'],
+    telecom: ['wireless', 'broadband', 'enterprise', 'consumer'],
+    ecommerce: ['b2b', 'b2c', 'marketplace', 'subscription'],
+    agriculture: ['crop', 'livestock', 'dairy', 'organic'],
+    technology: ['saas', 'infrastructure', 'security', 'data'],
+    sports: ['football', 'basketball', 'esports', 'baseball'],
+    engineering: ['mechanical', 'electrical', 'civil', 'software'],
+    transportation: ['automotive', 'logistics', 'public', 'aviation'],
+    scientific: ['physics', 'chemistry', 'biology', 'genomics']
+  };
+  
+  const domainSubs = subdomains[domain] || [];
+  
+  for (const sub of domainSubs) {
+    for (const word of words) {
+      if (word.includes(sub) || sub.includes(word)) {
+        return sub;
+      }
+    }
+  }
+  
+  return words.slice(0, 2).join(' ');
+}
+
+function inferTaskType(topic) {
   if (topic.includes('predict') || topic.includes('forecast')) return 'regression';
   if (topic.includes('detect') || topic.includes('fraud') || topic.includes('anomaly')) return 'anomaly_detection';
   if (topic.includes('cluster') || topic.includes('segment')) return 'clustering';
   if (topic.includes('rank') || topic.includes('score')) return 'ranking';
-  if (topic.includes('time') || topic.includes('series')) return 'time_series';
+  if (topic.includes('time') || topic.includes('series') || topic.includes('trend')) return 'time_series';
   return 'classification';
 }
 
-function generateTargetColumn(topic, task_type) {
-  const mappings = {
-    'classification': { keywords: ['churn', 'default', 'fraud', 'risk', 'diagnosis'], default: 'target' },
-    'regression': { keywords: ['price', 'cost', 'income', 'score', 'rating'], default: 'value' },
-    'anomaly_detection': { keywords: ['fraud', 'defect', 'failure'], default: 'is_anomaly' },
-    'clustering': { keywords: ['segment', 'group', 'type'], default: 'cluster' },
-    'ranking': { keywords: ['priority', 'importance', 'relevance'], default: 'rank' },
-    'time_series': { keywords: ['forecast', 'trend'], default: 'forecast' }
-  };
+function inferTargetColumn(words, domain, task_type) {
+  const suffix = task_type === 'regression' ? '_value' : '_status';
   
-  const config = mappings[task_type] || mappings.classification;
+  const firstWord = words[0] || domain;
   
-  for (const keyword of config.keywords) {
-    if (topic.includes(keyword)) {
-      return snakeCase(keyword);
-    }
+  if (domain === 'medical') {
+    if (task_type === 'classification') return 'diagnosis';
+    return 'health_score';
+  }
+  if (domain === 'financial') {
+    if (task_type === 'classification') return 'approval_status';
+    return 'credit_score';
+  }
+  if (domain === 'education') {
+    if (task_type === 'classification') return 'pass_status';
+    return 'score';
+  }
+  if (domain === 'retail') {
+    if (task_type === 'classification') return 'purchase_status';
+    return 'order_value';
+  }
+  if (domain === 'social') {
+    return 'engagement_level';
+  }
+  if (domain === 'hr') {
+    if (task_type === 'classification') return 'attrition_status';
+    return 'performance_score';
   }
   
-  return config.default;
+  return `${firstWord}${suffix}`;
 }
 
-function generateTargetValues(topic, task_type, target_column) {
+function inferTargetValues(target_column, task_type) {
   if (task_type === 'regression' || task_type === 'time_series') {
     return [0, 100];
   }
   
-  if (task_type === 'anomaly_detection') {
-    return [0, 1];
+  if (target_column.includes('status') || target_column.includes('approved')) {
+    return ['Rejected', 'Approved'];
   }
-  
-  if (target_column.includes('churn') || target_column.includes('attrition')) {
-    return ['No', 'Yes'];
-  }
-  if (target_column.includes('fraud') || target_column.includes('default')) {
-    return ['Legitimate', 'Fraudulent'];
-  }
-  if (target_column.includes('risk')) {
-    return ['Low', 'Medium', 'High'];
-  }
-  if (target_column.includes('diagnosis')) {
+  if (target_column.includes('diagnosis') || target_column.includes('disease')) {
     return ['Negative', 'Positive'];
   }
+  if (target_column.includes('risk') || target_column.includes('level')) {
+    return ['Low', 'Medium', 'High'];
+  }
+  if (target_column.includes('fraud') || target_column.includes('default')) {
+    return ['Normal', 'Fraudulent'];
+  }
+  if (target_column.includes('churn') || target_column.includes('attrition')) {
+    return ['Retained', 'Churned'];
+  }
+  if (target_column.includes('pass') || target_column.includes('completion')) {
+    return ['Fail', 'Pass'];
+  }
+  if (target_column.includes('sentiment') || target_column.includes('opinion')) {
+    return ['Negative', 'Neutral', 'Positive'];
+  }
   
-  return [0, 1];
+  return ['No', 'Yes'];
 }
 
-function extractKeyEntities(topic, domain) {
-  const entityPatterns = {
-    medical: ['patient', 'diagnosis', 'symptom', 'treatment', 'test', 'condition', 'glucose', 'blood_pressure', 'bmi', 'cholesterol', 'heart_rate'],
-    financial: ['account', 'transaction', 'payment', 'loan', 'credit', 'balance', 'income', 'debt', 'interest', 'score'],
-    education: ['student', 'course', 'grade', 'score', 'gpa', 'attendance', 'enrollment', 'exam'],
-    retail: ['customer', 'product', 'order', 'purchase', 'price', 'quantity', 'discount', 'rating'],
-    environmental: ['temperature', 'humidity', 'emission', 'pollutant', 'concentration', 'reading', 'level'],
-    social: ['user', 'post', 'engagement', 'followers', 'likes', 'shares', 'comments'],
-    hr: ['employee', 'salary', 'tenure', 'performance', 'department', 'position'],
-    telecom: ['subscriber', 'plan', 'usage', 'minutes', 'data', 'charges'],
-    ecommerce: ['order', 'product', 'customer', 'shipping', 'delivery', 'review'],
-    agriculture: ['crop', 'yield', 'soil', 'rainfall', 'temperature', 'fertilizer'],
-    technology: ['user', 'request', 'error', 'latency', 'throughput', 'deployment'],
-    sports: ['player', 'team', 'score', 'performance', 'match', 'game'],
-    engineering: ['machine', 'sensor', 'temperature', 'pressure', 'vibration', 'failure'],
-    transportation: ['vehicle', 'route', 'driver', 'distance', 'time', 'speed'],
-    scientific: ['measurement', 'observation', 'sample', 'experiment', 'result']
-  };
+function extractEntities(words, domain) {
+  const entities = [...words];
   
-  const domainEntities = entityPatterns[domain] || [];
-  const found = [];
+  const entitySuffixes = ['id', 'count', 'rate', 'score', 'amount', 'value', 'status', 'type', 'level'];
   
-  for (const entity of domainEntities) {
-    if (topic.includes(entity) || entity.includes(topic.split(/\s+/)[0])) {
-      found.push(entity);
+  for (const word of words) {
+    for (const suffix of entitySuffixes) {
+      if (word.endsWith(suffix) && word.length > suffix.length + 2) {
+        entities.push(word);
+      }
     }
   }
   
-  if (found.length < 3) {
-    const genericEntities = ['value', 'metric', 'measure', 'score', 'count', 'rate', 'index'];
-    for (const entity of genericEntities.slice(0, 5 - found.length)) {
-      found.push(entity);
+  return [...new Set(entities)].slice(0, 10);
+}
+
+function inferTemporal(words) {
+  const temporalWords = ['time', 'date', 'daily', 'monthly', 'yearly', 'hourly', 'historical', 'series', 'trend', 'temporal', 'seasonal'];
+  
+  for (const word of words) {
+    for (const temp of temporalWords) {
+      if (word.includes(temp)) return true;
     }
   }
   
-  return found.slice(0, 7);
+  return false;
 }
 
-function detectTemporal(topic) {
-  const temporalKeywords = ['time', 'date', 'daily', 'monthly', 'yearly', 'historical', 'temporal', 'series', 'trend'];
-  return temporalKeywords.some(kw => topic.includes(kw));
-}
-
-function detectGeospatial(topic) {
-  const geoKeywords = ['location', 'city', 'state', 'country', 'region', 'latitude', 'longitude', 'geographic', 'spatial', 'california', 'us', 'europe'];
-  const regions = ['california', 'texas', 'new york', 'europe', 'asia', 'africa', 'north america'];
+function inferGeospatial(words) {
+  const geoWords = ['location', 'city', 'region', 'country', 'state', 'area', 'zone', 'latitude', 'longitude', 'gps'];
+  const locations = ['california', 'texas', 'europe', 'asia', 'urban', 'rural'];
   
-  if (regions.some(r => topic.includes(r))) return true;
-  return geoKeywords.some(kw => topic.includes(kw));
-}
-
-function generateSearchQueries(topic) {
-  const queries = [
-    `${topic} dataset kaggle`,
-    `${topic} UCI machine learning`,
-    `${topic} open source dataset`
-  ];
+  for (const word of words) {
+    for (const geo of geoWords) {
+      if (word.includes(geo)) return true;
+    }
+    for (const loc of locations) {
+      if (word.includes(loc)) return true;
+    }
+  }
   
-  return queries;
-}
-
-function snakeCase(str) {
-  return str
-    .replace(/([A-Z])/g, '_$1')
-    .replace(/[\s-]+/g, '_')
-    .replace(/^_/, '')
-    .toLowerCase();
+  return false;
 }
 
 module.exports = { process };

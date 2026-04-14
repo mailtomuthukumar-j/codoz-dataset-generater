@@ -1,22 +1,21 @@
 {
   "dataset_name": "customer_churn_dataset",
   "generated_by": "CODOZ",
-  "generation_timestamp": "2026-04-14T17:15:33.408Z",
+  "generation_timestamp": "2026-04-14T17:50:17.093Z",
   "topic": "customer churn",
   "domain": "retail",
   "subdomain": "customer churn",
   "task_type": "classification",
-  "target_column": "churn_risk",
+  "target_column": "purchase_status",
   "total_rows": 3,
   "total_columns": 13,
   "chunk_count": 1,
   "format": "json",
-  "final_quality_score": 99.95,
+  "final_quality_score": 98.56538461538462,
   "refinement_cycles_used": 0,
-  "schema_source": "llm_knowledge",
+  "schema_source": "dynamic_inference",
   "label_distribution": {
-    "No": 2,
-    "Yes": 1
+    "Rejected": 3
   },
   "schema": [
     {
@@ -28,7 +27,7 @@
     },
     {
       "name": "age",
-      "dtype": "float",
+      "dtype": "int",
       "range": [
         18,
         90
@@ -39,10 +38,7 @@
     {
       "name": "gender",
       "dtype": "categorical",
-      "range": [
-        0,
-        100
-      ],
+      "range": null,
       "categories": [
         "Male",
         "Female"
@@ -50,31 +46,47 @@
       "is_target": false
     },
     {
-      "name": "city_tier",
+      "name": "order_total",
       "dtype": "float",
       "range": [
-        0,
-        100
+        5,
+        2000
       ],
-      "categories": [
-        "Tier 1",
-        "Tier 2",
-        "Tier 3"
-      ],
+      "categories": null,
       "is_target": false
     },
     {
-      "name": "price",
+      "name": "quantity",
+      "dtype": "int",
+      "range": [
+        1,
+        100
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "rating",
       "dtype": "float",
       "range": [
         1,
-        5000
+        5
       ],
       "categories": null,
       "is_target": false
     },
     {
-      "name": "promotion_used",
+      "name": "index",
+      "dtype": "int",
+      "range": [
+        0,
+        1000
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "customer_rate",
       "dtype": "float",
       "range": [
         0,
@@ -84,27 +96,27 @@
       "is_target": false
     },
     {
-      "name": "average_order_value",
+      "name": "customer_ratio",
       "dtype": "float",
       "range": [
-        18,
-        90
+        0,
+        1
       ],
       "categories": null,
       "is_target": false
     },
     {
-      "name": "item_count",
-      "dtype": "int",
+      "name": "customer_total",
+      "dtype": "float",
       "range": [
         0,
-        10
+        50000
       ],
       "categories": null,
       "is_target": false
     },
     {
-      "name": "click_through",
+      "name": "customer_percent",
       "dtype": "float",
       "range": [
         0,
@@ -114,42 +126,22 @@
       "is_target": false
     },
     {
-      "name": "returns_count",
+      "name": "customer_duration",
       "dtype": "int",
       "range": [
         0,
-        10
+        1000
       ],
       "categories": null,
       "is_target": false
     },
     {
-      "name": "latitude",
-      "dtype": "float",
-      "range": [
-        -90,
-        90
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "longitude",
-      "dtype": "float",
-      "range": [
-        -180,
-        180
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "churn_risk",
+      "name": "purchase_status",
       "dtype": "categorical",
       "range": null,
       "categories": [
-        "No",
-        "Yes"
+        "Rejected",
+        "Approved"
       ],
       "is_target": true
     }
