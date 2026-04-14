@@ -1,389 +1,316 @@
-const STRICT_RANGES = {
-  blood_pressure_systolic: [60, 180],
-  blood_pressure_diastolic: [40, 120],
-  heart_rate: [40, 140],
-  body_temperature: [35.0, 41.5],
-  bmi: [15.0, 55.0],
-  glucose_fasting: [50.0, 500.0],
-  glucose: [50.0, 500.0],
-  hba1c: [4.0, 16.0],
-  insulin_level: [2.0, 300.0],
-  age: [18, 100],
-  age_years: [18, 80],
-  pregnancies: [0, 20],
-  skin_thickness: [10.0, 99.0],
-  cholesterol: [100.0, 400.0],
-  hdl: [20.0, 100.0],
-  ldl: [50.0, 250.0],
-  credit_score: [300, 850],
-  income: [0.0, 500000.0],
-  loan_amount: [1000.0, 1000000.0],
-  debt_ratio: [0.0, 1.0],
-  payment_history: [0.0, 100.0],
-  temperature: [-50.0, 60.0],
-  humidity: [0.0, 100.0],
-  wind_speed: [0.0, 150.0],
-  aqi: [0, 500],
-  pm25: [0.0, 500.0],
-  pm10: [0.0, 500.0],
-  no2: [0.0, 200.0],
-  o3: [0.0, 200.0],
-  co: [0.0, 10.0],
-  gpa: [0.0, 4.0],
-  sat_score: [400, 1600],
-  attendance_rate: [0, 100],
-  score: [0, 100],
-  rating: [1, 5],
-  order_total: [5.0, 5000.0],
-  price: [0.0, 10000.0],
-  discount_percent: [0, 70],
-  quantity: [1, 100],
-  followers: [0, 50000000],
-  following: [0, 10000],
-  likes: [0, 10000000],
-  salary: [25000.0, 500000.0],
-  tenure_years: [0, 40],
-  performance_score: [1, 5],
-  data_used_gb: [0, 500],
-  latency_ms: [1, 5000],
-  error_rate: [0.0, 100.0],
-  cpu_usage: [0, 100],
-  memory_usage: [0, 100],
-  kills: [0, 50],
-  deaths: [0, 30],
-  assists: [0, 50],
-  win_rate: [0.0, 100.0],
-  kills_deaths_ratio: [0.0, 20.0],
-  latitude: [-90.0, 90.0],
-  longitude: [-180.0, 180.0]
-};
-
-const DOMAIN_CONSTRAINTS = {
-  medical: [
-    { condition: 'target = diabetic', consequence: 'glucose > 126 OR hba1c > 6.5', strength: 0.95 },
-    { condition: 'target = healthy', consequence: 'glucose < 100 AND bmi < 30', strength: 0.85 },
-    { condition: 'target = pre_diabetic', consequence: 'glucose >= 100 AND glucose <= 125', strength: 0.90 },
-    { condition: 'gender != female', consequence: 'pregnancies = 0', strength: 1.0 },
-    { condition: 'bmi > 35', consequence: 'activity_level IN [sedentary, light]', strength: 0.80 },
-    { condition: 'glucose > 180', consequence: 'hba1c > 7.5', strength: 0.92 },
-    { condition: 'glucose < 100', consequence: 'hba1c < 5.7', strength: 0.88 }
-  ],
-  financial: [
-    { condition: 'target = default', consequence: 'credit_score < 650 OR debt_ratio > 0.4', strength: 0.90 },
-    { condition: 'target = approved', consequence: 'credit_score >= 650 AND debt_ratio < 0.4', strength: 0.85 },
-    { condition: 'income < 30000', consequence: 'loan_amount < 200000', strength: 0.75 }
-  ],
-  retail: [
-    { condition: 'target = churn', consequence: 'order_frequency < 3 OR rating < 3', strength: 0.85 },
-    { condition: 'target = retained', consequence: 'order_frequency >= 3 OR rating >= 3', strength: 0.80 }
-  ],
-  environmental: [
-    { condition: 'temperature > 35 AND humidity < 20', consequence: 'fire_risk IN [high, extreme]', strength: 0.90 },
-    { condition: 'pm25 > 150', consequence: 'aqi > 150', strength: 0.95 }
-  ],
-  education: [
-    { condition: 'target = fail', consequence: 'study_hours < 5 OR attendance_rate < 60', strength: 0.85 },
-    { condition: 'target = pass', consequence: 'study_hours >= 10 AND attendance_rate >= 75', strength: 0.80 }
-  ],
-  sports: [
-    { condition: 'kills > 20', consequence: 'kills_deaths_ratio > 2.0', strength: 0.90 },
-    { condition: 'deaths > 15', consequence: 'win_rate < 40', strength: 0.85 }
-  ],
-  default: []
-};
+/**
+ * CODOZ Schema Architect Agent
+ * 
+ * Constructs the dataset schema from topic analysis:
+ * 1. Build column definitions from topic understanding
+ * 2. Define proper ranges and data types
+ * 3. Set up constraints and relationships
+ * 4. Create generation order
+ */
 
 function process(context) {
-  const topic = context.topic || '';
-  const domain = context.domain || 'other';
-  const task_type = context.task_type || 'classification';
-  const target_values = context.target_values || ['No', 'Yes'];
-  const temporal = context.temporal || false;
-  const geospatial = context.geospatial || false;
+  const { topicAnalysis, target, features, causalRules } = context;
   
-  const columns = [];
-  const constraints = DOMAIN_CONSTRAINTS[domain] || DOMAIN_CONSTRAINTS.default;
+  if (!topicAnalysis) {
+    return {
+      ...context,
+      error: 'Topic analysis required',
+      logs: [...context.logs, createLog('error', 'Topic analysis required')]
+    };
+  }
   
-  columns.push({
-    name: 'id',
-    dtype: 'uuid',
-    null_rate: 0,
-    statistical_bounds: null,
-    description: 'Unique identifier'
+  console.log('━'.repeat(60));
+  console.log('PHASE 2: SCHEMA CONSTRUCTION');
+  console.log('━'.repeat(60));
+  
+  console.log(`\nConstructing schema for: ${topicAnalysis.topic}`);
+  console.log(`Entity: ${topicAnalysis.entity}`);
+  console.log(`Context: ${topicAnalysis.context}`);
+  
+  // Build the schema
+  const schema = buildSchema(topicAnalysis, target, features, causalRules, context);
+  
+  console.log(`\nSchema built successfully!`);
+  console.log(`  - Total columns: ${schema.columns.length}`);
+  console.log(`  - Target column: ${schema.targetColumn}`);
+  console.log(`  - Feature columns: ${schema.columns.filter(c => !c.isTarget).length}`);
+  
+  // Generate column summary
+  const columnSummary = schema.columns.map(c => ({
+    name: c.name,
+    type: c.dataType,
+    range: c.range ? `${c.range[0]} - ${c.range[1]}` : 'categorical',
+    isTarget: c.isTarget
+  }));
+  
+  console.log(`\nColumn definitions:`);
+  columnSummary.forEach(col => {
+    const targetMark = col.isTarget ? ' [TARGET]' : '';
+    const rangeInfo = col.range ? ` (${col.range})` : '';
+    console.log(`  - ${col.name}: ${col.type}${rangeInfo}${targetMark}`);
   });
-  
-  const targetColName = context.target_column || inferTargetColumn(domain, task_type);
-  const targetRange = getDomainTargetRange(domain, targetColName, task_type);
-  columns.push({
-    name: targetColName,
-    dtype: task_type === 'regression' ? 'float' : 'categorical',
-    range: targetRange,
-    categories: task_type === 'regression' ? undefined : target_values,
-    is_target: true,
-    generation_order: 1,
-    null_rate: 0,
-    statistical_bounds: task_type === 'regression' ? {
-      min: targetRange[0],
-      max: targetRange[1],
-      mean_expected: (targetRange[0] + targetRange[1]) / 2
-    } : null,
-    description: 'Target variable to predict'
-  });
-  
-  const demographics = generateDemographics(domain);
-  for (const col of demographics) {
-    col.generation_order = 6;
-    columns.push(col);
-  }
-  
-  const measurements = generateMeasurements(domain, targetColName);
-  for (const col of measurements) {
-    col.generation_order = 3;
-    columns.push(col);
-  }
-  
-  if (temporal) {
-    columns.push({
-      name: 'timestamp',
-      dtype: 'datetime',
-      null_rate: 0,
-      generation_order: 7,
-      statistical_bounds: null,
-      description: 'Event timestamp'
-    });
-  }
-  
-  if (geospatial) {
-    columns.push({
-      name: 'latitude',
-      dtype: 'float',
-      range: [-90.0, 90.0],
-      null_rate: 0,
-      generation_order: 7,
-      statistical_bounds: { min: -90, max: 90, mean_expected: 0 },
-      description: 'Geographic latitude'
-    });
-    columns.push({
-      name: 'longitude',
-      dtype: 'float',
-      range: [-180.0, 180.0],
-      null_rate: 0,
-      generation_order: 7,
-      statistical_bounds: { min: -180, max: 180, mean_expected: 0 },
-      description: 'Geographic longitude'
-    });
-  }
-  
-  columns.sort((a, b) => (a.generation_order || 5) - (b.generation_order || 5));
-  
-  const label_distribution = generateLabelDistribution(task_type, target_values);
-  
-  const schema = {
-    columns,
-    constraints,
-    label_distribution,
-    schema_source: 'strict_dynamic_generation',
-    correlation_pairs: CORRELATION_PAIRS,
-    correlated_columns: CORRELATED_COLUMNS[domain] || []
-  };
   
   return {
     ...context,
     schema,
-    target_column: targetColName,
-    label_distribution,
-    logs: [...context.logs, {
-      timestamp: new Date().toISOString(),
-      event: 'schema_architect_complete',
-      data: { column_count: columns.length, source: 'strict_dynamic_generation', domain }
-    }]
+    columnCount: schema.columns.length,
+    targetColumn: schema.targetColumn,
+    featureColumns: schema.columns.filter(c => !c.isTarget).map(c => c.name),
+    logs: [...context.logs, createLog('schema_architect_complete', {
+      datasetName: topicAnalysis.topic,
+      columnCount: schema.columns.length,
+      targetColumn: schema.targetColumn,
+      entity: topicAnalysis.entity
+    })]
   };
 }
 
-function inferTargetColumn(domain, task_type) {
-  const targets = {
-    medical: 'diagnosis',
-    financial: 'approval_status',
-    education: 'pass_status',
-    retail: 'churn',
-    environmental: 'risk_level',
-    social: 'engagement_level',
-    hr: 'attrition_status',
-    telecom: 'churn',
-    ecommerce: 'purchase_status',
-    agriculture: 'yield_status',
-    technology: 'status',
-    sports: 'outcome',
-    engineering: 'status',
-    transportation: 'status',
-    scientific: 'result'
-  };
-  return targets[domain] || 'target';
-}
-
-function generateDemographics(domain) {
-  const cols = [];
+function buildSchema(topicAnalysis, target, features, causalRules, context) {
+  const columns = [];
+  const generationOrder = [];
   
-  cols.push({
-    name: 'age',
-    dtype: 'int',
-    range: [18, 100],
-    null_rate: 0
+  // 1. Add identifier column (always first)
+  const idColumn = buildIdColumn(topicAnalysis.entity);
+  columns.push(idColumn);
+  generationOrder.push(idColumn.name);
+  
+  // 2. Add target column (always second for classification)
+  const targetColumn = buildTargetColumn(target, topicAnalysis);
+  columns.push(targetColumn);
+  generationOrder.push(targetColumn.name);
+  
+  // 3. Add demographic columns (early for context)
+  const demographicColumns = buildFeatureColumns(features?.demographics, 'demographics');
+  demographicColumns.forEach(col => {
+    columns.push(col);
+    generationOrder.push(col.name);
   });
   
-  if (domain !== 'environmental') {
-    cols.push({
-      name: 'gender',
-      dtype: 'categorical',
-      categories: ['male', 'female', 'other'],
-      null_rate: 0
+  // 4. Add feature columns grouped by category
+  const featureCategories = [
+    'metabolic', 'cardiac_exam', 'stress_test', 'blood_test',
+    'sensor_readings', 'operational', 'financial', 'job', 
+    'compensation', 'career', 'performance', 'transaction',
+    'subscription', 'services', 'billing', 'academic', 
+    'behavior', 'family', 'social', 'environment',
+    'urinalysis', 'cell_characteristics', 'worst_values',
+    'liver_function_tests', 'kidney_function', 'pedigree',
+    'cardiovascular', 'services', 'product_quality', 'timestamp',
+    'location', 'machine', 'applicant', 'loan', 'policy',
+    'risk_factors', 'claims', 'merchant', 'account',
+    'customer', 'campaign', 'spending'
+  ];
+  
+  for (const category of featureCategories) {
+    if (features && features[category]) {
+      const categoryColumns = buildFeatureColumns(features[category], category);
+      categoryColumns.forEach(col => {
+        if (!columns.find(c => c.name === col.name)) {
+          columns.push(col);
+          generationOrder.push(col.name);
+        }
+      });
+    }
+  }
+  
+  // 5. Add any remaining features
+  if (features) {
+    for (const [category, featureList] of Object.entries(features)) {
+      if (!['demographics'].includes(category)) {
+        const categoryColumns = buildFeatureColumns(featureList, category);
+        categoryColumns.forEach(col => {
+          if (!columns.find(c => c.name === col.name)) {
+            columns.push(col);
+            generationOrder.push(col.name);
+          }
+        });
+      }
+    }
+  }
+  
+  // Build constraints
+  const constraints = buildConstraints(causalRules, target, columns);
+  
+  return {
+    columns,
+    targetColumn: targetColumn.name,
+    generationOrder,
+    constraints,
+    entity: topicAnalysis.entity,
+    context: topicAnalysis.context
+  };
+}
+
+function buildIdColumn(entity) {
+  const entityNames = {
+    patient: 'patient_id',
+    student: 'student_id',
+    employee: 'employee_id',
+    transaction: 'transaction_id',
+    machine: 'machine_id',
+    customer: 'customer_id',
+    record: 'record_id',
+    sample: 'sample_id'
+  };
+  
+  return {
+    name: entityNames[entity] || 'id',
+    dataType: 'uuid',
+    description: 'Unique record identifier',
+    isTarget: false,
+    isId: true,
+    nullable: false,
+    range: null,
+    categories: null
+  };
+}
+
+function buildTargetColumn(target, topicAnalysis) {
+  const isRegression = target?.type === 'regression';
+  const isMultiClass = target?.type === 'multi_class_classification';
+  
+  if (isRegression) {
+    return {
+      name: target.name,
+      dataType: 'float',
+      description: target.description || 'Target variable',
+      isTarget: true,
+      isId: false,
+      nullable: false,
+      range: target.values,
+      categories: null,
+      unit: null
+    };
+  }
+  
+  return {
+    name: target.name,
+    dataType: 'categorical',
+    description: target.description || 'Target variable',
+    isTarget: true,
+    isId: false,
+    nullable: false,
+    range: null,
+    categories: target.values,
+    unit: null
+  };
+}
+
+function buildFeatureColumns(featureList, category) {
+  if (!featureList || !Array.isArray(featureList)) {
+    return [];
+  }
+  
+  return featureList.map(feature => {
+    // Skip ID columns
+    if (feature.type === 'uuid' || feature.name === 'id') {
+      return null;
+    }
+    
+    return {
+      name: feature.name,
+      dataType: normalizeDataType(feature.type),
+      description: feature.description || `${feature.name} feature`,
+      isTarget: false,
+      isId: false,
+      nullable: false,
+      range: feature.range || null,
+      categories: feature.categories || null,
+      unit: feature.unit || null,
+      conditional: feature.conditional || null,
+      critical: feature.critical || false,
+      category: category
+    };
+  }).filter(c => c !== null);
+}
+
+function normalizeDataType(type) {
+  const typeMap = {
+    'integer': 'int',
+    'float': 'float',
+    'categorical': 'categorical',
+    'binary': 'binary',
+    'boolean': 'boolean',
+    'uuid': 'uuid',
+    'date': 'datetime',
+    'datetime': 'datetime'
+  };
+  
+  return typeMap[type] || type;
+}
+
+function buildConstraints(causalRules, target, columns) {
+  const constraints = {
+    targetRules: [],
+    correlationRules: [],
+    conditionalRules: []
+  };
+  
+  // Build target-based rules
+  if (target?.values && target.values.length > 0) {
+    target.values.forEach(value => {
+      constraints.targetRules.push({
+        targetValue: value,
+        features: buildFeatureConstraintsForTarget(columns, value, target)
+      });
     });
   }
   
-  return cols;
+  // Build causal rules
+  if (causalRules && Array.isArray(causalRules)) {
+    causalRules.forEach(rule => {
+      if (rule.type === 'target_rule') {
+        constraints.targetRules.push({
+          condition: rule.condition,
+          targetValue: rule.target_value,
+          confidence: rule.confidence
+        });
+      } else if (rule.direction) {
+        constraints.correlationRules.push({
+          feature: rule.feature,
+          affected: rule.affected,
+          direction: rule.direction,
+          confidence: rule.confidence
+        });
+      }
+    });
+  }
+  
+  // Build conditional rules (e.g., pregnancy only for female)
+  columns.forEach(col => {
+    if (col.conditional) {
+      constraints.conditionalRules.push({
+        feature: col.name,
+        condition: col.conditional
+      });
+    }
+  });
+  
+  return constraints;
 }
 
-const CORRELATED_COLUMNS = {
-  medical: ['glucose', 'hba1c', 'bmi', 'blood_pressure_systolic', 'cholesterol', 'heart_rate'],
-  financial: ['credit_score', 'income', 'debt_ratio'],
-  sports: ['kills', 'deaths', 'win_rate', 'kills_deaths_ratio'],
-  environmental: ['pm25', 'aqi', 'temperature', 'humidity']
-};
-
-const CORRELATION_PAIRS = [
-  { source: 'glucose', target: 'hba1c', expected_direction: 'positive' },
-  { source: 'bmi', target: 'blood_pressure_systolic', expected_direction: 'positive' },
-  { source: 'credit_score', target: 'income', expected_direction: 'positive' },
-  { source: 'kills', target: 'kills_deaths_ratio', expected_direction: 'positive' },
-  { source: 'deaths', target: 'win_rate', expected_direction: 'negative' },
-  { source: 'pm25', target: 'aqi', expected_direction: 'positive' }
-];
-
-function generateMeasurements(domain, targetColName) {
-  const cols = [];
-  const correlatedNames = CORRELATED_COLUMNS[domain] || [];
+function buildFeatureConstraintsForTarget(columns, targetValue, target) {
+  const constraints = {};
   
-  const domainSpecific = {
-    medical: [
-      { name: 'glucose', dtype: 'float', range: [50.0, 500.0], correlated: true },
-      { name: 'hba1c', dtype: 'float', range: [4.0, 16.0], correlated: true },
-      { name: 'bmi', dtype: 'float', range: [15.0, 55.0], correlated: true },
-      { name: 'blood_pressure_systolic', dtype: 'int', range: [60, 180], correlated: true },
-      { name: 'blood_pressure_diastolic', dtype: 'int', range: [40, 120] },
-      { name: 'cholesterol', dtype: 'float', range: [100.0, 400.0], correlated: true },
-      { name: 'heart_rate', dtype: 'int', range: [40, 140] }
-    ],
-    financial: [
-      { name: 'credit_score', dtype: 'int', range: [300, 850] },
-      { name: 'income', dtype: 'float', range: [0.0, 500000.0] },
-      { name: 'loan_amount', dtype: 'float', range: [1000.0, 1000000.0] },
-      { name: 'debt_ratio', dtype: 'float', range: [0.0, 1.0] },
-      { name: 'payment_history', dtype: 'float', range: [0.0, 100.0] }
-    ],
-    retail: [
-      { name: 'order_total', dtype: 'float', range: [5.0, 5000.0] },
-      { name: 'quantity', dtype: 'int', range: [1, 100] },
-      { name: 'rating', dtype: 'float', range: [1.0, 5.0] },
-      { name: 'discount_percent', dtype: 'int', range: [0, 70] }
-    ],
-    environmental: [
-      { name: 'temperature', dtype: 'float', range: [-50.0, 60.0] },
-      { name: 'humidity', dtype: 'float', range: [0.0, 100.0] },
-      { name: 'wind_speed', dtype: 'float', range: [0.0, 150.0] },
-      { name: 'pm25', dtype: 'float', range: [0.0, 500.0] },
-      { name: 'aqi', dtype: 'int', range: [0, 500] }
-    ],
-    education: [
-      { name: 'gpa', dtype: 'float', range: [0.0, 4.0] },
-      { name: 'study_hours', dtype: 'float', range: [0.0, 40.0] },
-      { name: 'attendance_rate', dtype: 'int', range: [0, 100] },
-      { name: 'score', dtype: 'int', range: [0, 100] }
-    ],
-    social: [
-      { name: 'followers', dtype: 'int', range: [0, 50000000] },
-      { name: 'following', dtype: 'int', range: [0, 10000] },
-      { name: 'likes', dtype: 'int', range: [0, 10000000] },
-      { name: 'engagement_rate', dtype: 'float', range: [0.0, 15.0] }
-    ],
-    hr: [
-      { name: 'salary', dtype: 'float', range: [25000.0, 500000.0] },
-      { name: 'tenure_years', dtype: 'float', range: [0.0, 40.0] },
-      { name: 'performance_score', dtype: 'int', range: [1, 5] }
-    ],
-    technology: [
-      { name: 'latency_ms', dtype: 'int', range: [1, 5000] },
-      { name: 'error_rate', dtype: 'float', range: [0.0, 100.0] },
-      { name: 'cpu_usage', dtype: 'int', range: [0, 100] },
-      { name: 'memory_usage', dtype: 'int', range: [0, 100] }
-    ],
-    sports: [
-      { name: 'kills', dtype: 'int', range: [0, 50] },
-      { name: 'deaths', dtype: 'int', range: [0, 30] },
-      { name: 'assists', dtype: 'int', range: [0, 50] },
-      { name: 'win_rate', dtype: 'float', range: [0.0, 100.0] },
-      { name: 'kills_deaths_ratio', dtype: 'float', range: [0.0, 20.0] }
-    ],
-    default: [
-      { name: 'value', dtype: 'float', range: [0.0, 100.0] },
-      { name: 'count', dtype: 'int', range: [0, 1000] },
-      { name: 'score', dtype: 'int', range: [0, 100] }
-    ]
+  // For each column, determine if it has different ranges for different target values
+  columns.forEach(col => {
+    if (col.isTarget || !col.range) return;
+    
+    // Default range
+    constraints[col.name] = {
+      default: col.range
+    };
+  });
+  
+  return constraints;
+}
+
+function createLog(event, data) {
+  return {
+    timestamp: new Date().toISOString(),
+    event,
+    data
   };
-  
-  const candidates = domainSpecific[domain] || domainSpecific.default;
-  
-  for (const col of candidates.slice(0, 5)) {
-    cols.push({ ...col, null_rate: 0 });
-  }
-  
-  return cols;
-}
-
-function generateLabelDistribution(task_type, target_values) {
-  if (task_type === 'regression') {
-    return { range: target_values };
-  }
-  
-  if (Array.isArray(target_values)) {
-    if (target_values.length === 2) {
-      return { [target_values[0]]: 0.65, [target_values[1]]: 0.35 };
-    }
-    if (target_values.length === 3) {
-      return { [target_values[0]]: 0.50, [target_values[1]]: 0.30, [target_values[2]]: 0.20 };
-    }
-    const equal = 1 / target_values.length;
-    const dist = {};
-    for (const v of target_values) {
-      dist[v] = equal;
-    }
-    return dist;
-  }
-  
-  return { 'No': 0.65, 'Yes': 0.35 };
-}
-
-function getDomainTargetRange(domain, targetColumn, task_type) {
-  if (task_type !== 'regression') {
-    return undefined;
-  }
-  
-  const regressionTargets = {
-    medical: { health_score: [0, 100], risk_score: [0, 100] },
-    financial: { credit_score: [300, 850], income: [0, 500000], price: [0, 10000] },
-    education: { gpa: [0, 4.0], score: [0, 100] },
-    retail: { order_value: [0, 5000], price: [0, 1000] },
-    environmental: { aqi: [0, 500], temperature: [-50, 60] },
-    sports: { win_rate: [0, 100], kills_deaths_ratio: [0, 20] }
-  };
-  
-  const domainTargets = regressionTargets[domain] || {};
-  
-  for (const [colName, range] of Object.entries(domainTargets)) {
-    if (targetColumn.toLowerCase().includes(colName.toLowerCase())) {
-      return range;
-    }
-  }
-  
-  return [0, 100];
 }
 
 module.exports = { process };

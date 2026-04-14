@@ -1,78 +1,134 @@
 #!/usr/bin/env node
 
-const prompts = require('prompts');
-const { runSync } = require('./core/orchestrator');
+/**
+ * CODOZ CLI Entry Point
+ * 
+ * Command-line interface for the Analysis-First Dataset Engine.
+ * 
+ * Usage:
+ *   node cli.js "diabetes dataset" --size 100 --format json
+ *   node cli.js "customer churn" --size 500 --format csv
+ *   node cli.js "credit card fraud" --size 200
+ */
 
-const args = process.argv.slice(2);
+const { Command } = require('commander');
+const { run } = require('./core/orchestrator');
 
-function main() {
-  if (args.length === 0) {
-    interactiveMode();
-    return;
-  }
+const program = new Command();
 
-  const firstTwo = args.slice(0, 2);
-  if (firstTwo[0] === 'dataset' && firstTwo[1] === 'generate') {
-    directMode(args.slice(2));
-    return;
-  }
+program
+  .name('codoz')
+  .description('CODOZ - Analysis-First Dataset Engine\n\nGenerate realistic ML-ready synthetic datasets from topics.')
+  .version('1.0.0');
 
-  console.log('Invalid command. Use: npx codoz dataset generate <topic>');
-  console.log('Example: npx codoz dataset generate diabetes --size 100');
-  process.exit(1);
-}
+program
+  .command('dataset generate')
+  .description('Generate a synthetic dataset from a topic')
+  .argument('<topic>', 'The topic to generate a dataset for (e.g., "diabetes dataset", "customer churn")')
+  .option('-s, --size <number>', 'Number of rows to generate', '100')
+  .option('-f, --format <format>', 'Output format: json, csv, or jsonl', 'json')
+  .option('--seed <number>', 'Random seed for reproducibility')
+  .action(async (topic, options) => {
+    try {
+      const result = run(topic, {
+        size: parseInt(options.size) || 100,
+        format: options.format || 'json',
+        seed: options.seed ? parseInt(options.seed) : Date.now()
+      });
+      
+      console.log('\nDataset generated successfully!');
+      process.exit(0);
+    } catch (error) {
+      console.error('\nError generating dataset:', error.message);
+      process.exit(1);
+    }
+  });
 
-function directMode(subArgs) {
-  let topic = '';
-  let size = 500;
-  let format = 'json';
+program
+  .command('topics')
+  .description('List all available topics in the knowledge base')
+  .action(() => {
+    const { getAllTopics } = require('./core/knowledge_base');
+    const topics = getAllTopics();
+    
+    console.log('\nAvailable Topics (' + topics.length + '):\n');
+    topics.forEach(topic => {
+      console.log('  ' + topic.key);
+      console.log('    Name: ' + topic.name);
+      console.log('    Entity: ' + topic.entity);
+      console.log('    ' + topic.description.substring(0, 60) + '...');
+      console.log('');
+    });
+  });
 
-  for (let i = 0; i < subArgs.length; i++) {
-    const part = subArgs[i];
-    if (part === '--size' || part === '-s') {
-      size = parseInt(subArgs[i + 1]) || 500;
-      i++;
-    } else if (part === '--format' || part === '-f') {
-      const fmt = subArgs[i + 1]?.toLowerCase();
-      if (['json', 'csv', 'jsonl'].includes(fmt)) format = fmt;
-      i++;
-    } else if (part === '--seed') {
-      i++;
-    } else if (!part.startsWith('-')) {
-      topic = topic ? topic + ' ' + part : part;
+// Also support direct arguments without subcommand
+if (process.argv.length > 2 && process.argv[2] !== 'dataset' && process.argv[2] !== 'topics') {
+  const args = process.argv.slice(2);
+  const options = {
+    size: 100,
+    format: 'json'
+  };
+  
+  // Parse flags
+  const filteredArgs = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--size' || arg === '-s') {
+      options.size = parseInt(args[++i]) || 100;
+    } else if (arg === '--format' || arg === '-f') {
+      options.format = args[++i] || 'json';
+    } else if (arg === '--seed') {
+      options.seed = parseInt(args[++i]);
+    } else if (arg.startsWith('--')) {
+      // Skip unknown flags
+    } else if (arg.startsWith('-')) {
+      // Skip short flags
+    } else {
+      filteredArgs.push(arg);
     }
   }
-
-  if (!topic) {
-    console.log('No topic provided. Starting interactive mode...\n');
-    interactiveMode();
-    return;
+  
+  const topic = filteredArgs.join(' ');
+  if (topic) {
+    run(topic, options);
+    process.exit(0);
   }
-
-  runSync(topic, { size, format });
 }
 
-async function interactiveMode() {
-  const answers = await prompts([
-    { type: 'text', name: 'topic', message: 'Enter dataset topic:', validate: val => val.trim().length > 0 },
-    { type: 'text', name: 'size', message: 'Enter dataset size:', initial: '500' },
-    { type: 'select', name: 'format', message: 'Select dataset format:', choices: [
-      { title: 'json', value: 'json' },
-      { title: 'csv', value: 'csv' },
-      { title: 'jsonl', value: 'jsonl' }
-    ], initial: 0 },
-    { type: 'confirm', name: 'confirm', message: 'Confirm generation?', initial: true }
-  ], { onCancel: () => { console.log('\nCancelled.'); process.exit(0); } });
-
-  if (!answers.confirm) {
-    console.log('\nCancelled.');
-    return;
-  }
-
-  runSync(answers.topic, {
-    size: parseInt(answers.size) || 500,
-    format: answers.format
-  });
+// Show help if no arguments
+if (process.argv.length === 2) {
+  console.log(`
+╔═══════════════════════════════════════════════════════════════════╗
+║                                                                   ║
+║              CODOZ · ANALYSIS-FIRST DATASET ENGINE              ║
+║                                                                   ║
+║   Generate realistic ML-ready synthetic datasets from topics.    ║
+║                                                                   ║
+╠═══════════════════════════════════════════════════════════════════╣
+║                                                                   ║
+║   Usage:                                                          ║
+║     node cli.js "diabetes dataset" --size 100 --format json       ║
+║     node cli.js "customer churn" --size 500 --format csv           ║
+║     node cli.js topics                                           ║
+║                                                                   ║
+║   Options:                                                       ║
+║     -s, --size <number>     Number of rows (default: 100)        ║
+║     -f, --format <format>   Output format: json, csv, jsonl       ║
+║                                                                   ║
+╠═══════════════════════════════════════════════════════════════════╣
+║                                                                   ║
+║   Example Topics:                                                ║
+║     • diabetes          • customer churn                          ║
+║     • heart disease     • credit card fraud                       ║
+║     • breast cancer     • loan default                            ║
+║     • student performance  • employee attrition                  ║
+║     • machine maintenance  • sensor monitoring                    ║
+║                                                                   ║
+║   Run 'node cli.js topics' to see all available topics.         ║
+║                                                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+`);
+  process.exit(0);
 }
 
-main();
+program.parse(process.argv);

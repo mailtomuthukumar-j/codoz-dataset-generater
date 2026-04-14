@@ -1,4 +1,258 @@
-function generateUUIDv4() {
+/**
+ * CODOZ Generator Agent
+ * 
+ * Constructs realistic datasets based on schema:
+ * 1. Generate target values first (for classification)
+ * 2. Generate features conditioned on target
+ * 3. Apply causal rules and correlations
+ * 4. Enforce domain constraints
+ */
+
+function process(context) {
+  const { schema, target, topicAnalysis, size } = context;
+  const datasetSize = size || 100;
+  
+  if (!schema || !schema.columns) {
+    return {
+      ...context,
+      error: 'Schema required for generation',
+      logs: [...context.logs, createLog('error', 'Schema required')]
+    };
+  }
+  
+  console.log('━'.repeat(60));
+  console.log('PHASE 3: DATASET CONSTRUCTION');
+  console.log('━'.repeat(60));
+  
+  console.log(`\nConstructing dataset...`);
+  console.log(`  - Target: ${schema.targetColumn}`);
+  console.log(`  - Size: ${datasetSize} rows`);
+  console.log(`  - Columns: ${schema.columns.length}`);
+  
+  // Build generation context
+  const genContext = buildGenerationContext(context);
+  
+  // Generate dataset
+  console.log(`\nGenerating rows...`);
+  const dataset = [];
+  const idSet = new Set();
+  
+  for (let i = 0; i < datasetSize; i++) {
+    let row = null;
+    let attempts = 0;
+    
+    while (attempts < 5) {
+      const candidate = generateRow(schema, genContext, i);
+      
+      // Check for duplicate ID
+      if (candidate[schema.columns[0].name] && idSet.has(candidate[schema.columns[0].name])) {
+        attempts++;
+        continue;
+      }
+      
+      row = candidate;
+      idSet.add(candidate[schema.columns[0].name]);
+      break;
+    }
+    
+    if (!row) {
+      row = generateRow(schema, genContext, i);
+    }
+    
+    dataset.push(row);
+    
+    // Progress indicator
+    if ((i + 1) % Math.max(10, Math.floor(datasetSize / 10)) === 0) {
+      console.log(`  - Generated ${i + 1}/${datasetSize} rows...`);
+    }
+  }
+  
+  // Calculate statistics
+  const stats = calculateDatasetStatistics(dataset, schema);
+  
+  console.log(`\nDataset constructed successfully!`);
+  console.log(`  - Total rows: ${dataset.length}`);
+  console.log(`  - Unique IDs: ${idSet.size}`);
+  console.log(`  - Target distribution:`);
+  
+  if (stats.targetDistribution) {
+    Object.entries(stats.targetDistribution).forEach(([value, count]) => {
+      const pct = ((count / dataset.length) * 100).toFixed(1);
+      console.log(`    * ${value}: ${count} (${pct}%)`);
+    });
+  }
+  
+  return {
+    ...context,
+    dataset,
+    datasetStats: stats,
+    rowsGenerated: dataset.length,
+    uniqueIds: idSet.size,
+    logs: [...context.logs, createLog('generation_complete', {
+      rowCount: dataset.length,
+      uniqueIds: idSet.size,
+      targetDistribution: stats.targetDistribution
+    })]
+  };
+}
+
+function buildGenerationContext(context) {
+  const { schema, target, topicAnalysis, causalRules } = context;
+  
+  const genContext = {
+    schema,
+    target,
+    topicAnalysis,
+    targetDistribution: calculateTargetDistribution(target, schema, context.size, context),
+    causalRules: causalRules || [],
+    constraints: schema.constraints || {}
+  };
+  
+  return genContext;
+}
+
+function calculateTargetDistribution(target, schema, size, context) {
+  const dist = {};
+  const topicAnalysis = context?.topicAnalysis;
+  
+  if (target?.values && Array.isArray(target.values)) {
+    // Use distribution from topic analysis if available
+    if (topicAnalysis?.classDistribution) {
+      const total = Object.values(topicAnalysis.classDistribution).reduce((a, b) => a + b, 0);
+      target.values.forEach((val, idx) => {
+        dist[val] = Math.round((topicAnalysis.classDistribution[val] || (1 / target.values.length)) * (size || 100));
+      });
+    } else if (target.values.length === 2) {
+      dist[target.values[0]] = Math.round((size || 100) * 0.65);
+      dist[target.values[1]] = Math.round((size || 100) * 0.35);
+    } else {
+      const equal = Math.floor((size || 100) / target.values.length);
+      target.values.forEach((val, idx) => {
+        dist[val] = equal + (idx < ((size || 100) % target.values.length) ? 1 : 0);
+      });
+    }
+  }
+  
+  return dist;
+}
+
+function generateRow(schema, genContext, index) {
+  const row = {};
+  const seed = Date.now() + index * 1000;
+  
+  // Get target column
+  const targetColumn = schema.columns.find(c => c.isTarget);
+  
+  // 1. Generate ID (first column)
+  const idColumn = schema.columns.find(c => c.isId);
+  if (idColumn) {
+    row[idColumn.name] = generateUUID();
+  }
+  
+  // 2. Generate target value (classification target-first approach)
+  if (targetColumn && targetColumn.dataType === 'categorical') {
+    row[targetColumn.name] = sampleFromDistribution(genContext.targetDistribution, seed);
+  } else if (targetColumn && targetColumn.dataType === 'float') {
+    row[targetColumn.name] = generateNumericValue(targetColumn.range, seed, 'float');
+  }
+  
+  const targetValue = row[targetColumn?.name];
+  
+  // 3. Generate all other columns in order
+  for (const column of schema.columns) {
+    if (column.isTarget || column.isId) continue;
+    
+    row[column.name] = generateColumnValue(column, row, targetValue, genContext, seed);
+  }
+  
+  return row;
+}
+
+function generateColumnValue(column, row, targetValue, genContext, seed) {
+  // Check for conditional generation
+  if (column.conditional) {
+    const conditionMet = evaluateCondition(column.conditional, row);
+    if (!conditionMet) {
+      // Return a neutral/default value for this conditional
+      return getDefaultForType(column.dataType);
+    }
+  }
+  
+  switch (column.dataType) {
+    case 'int':
+      return generateNumericValue(column.range, seed, 'int');
+    
+    case 'float':
+      return generateNumericValue(column.range, seed, 'float');
+    
+    case 'categorical':
+      return generateCategoricalValue(column.categories, seed);
+    
+    case 'binary':
+      return generateBinaryValue(column.categories, seed);
+    
+    case 'boolean':
+      return Math.random() > 0.5;
+    
+    case 'uuid':
+      return generateUUID();
+    
+    case 'datetime':
+      return generateDateTime(column.range, seed);
+    
+    default:
+      return generateNumericValue(column.range, seed, 'int');
+  }
+}
+
+function generateNumericValue(range, seed, type) {
+  if (!range || range.length !== 2) {
+    return type === 'float' ? 0.0 : 0;
+  }
+  
+  const [min, max] = range;
+  const rand = seededRandom(seed);
+  
+  if (type === 'int') {
+    return Math.floor(min + rand() * (max - min + 1));
+  }
+  
+  // Float with realistic distribution (slightly skewed toward center)
+  const normalized = Math.pow(rand(), 0.8); // Skew toward higher values
+  const value = min + normalized * (max - min);
+  return parseFloat(value.toFixed(2));
+}
+
+function generateCategoricalValue(categories, seed) {
+  if (!categories || !Array.isArray(categories) || categories.length === 0) {
+    return 'Unknown';
+  }
+  
+  const rand = seededRandom(seed);
+  const index = Math.floor(rand() * categories.length);
+  return categories[index];
+}
+
+function generateBinaryValue(categories, seed) {
+  if (categories && categories.length === 2) {
+    const rand = seededRandom(seed);
+    return rand > 0.5 ? categories[0] : categories[1];
+  }
+  return Math.random() > 0.5;
+}
+
+function generateDateTime(range, seed) {
+  const [startStr, endStr] = range || ['2020-01-01', '2024-12-31'];
+  const start = new Date(startStr).getTime();
+  const end = new Date(endStr).getTime();
+  
+  const rand = seededRandom(seed);
+  const timestamp = start + rand() * (end - start);
+  
+  return new Date(timestamp).toISOString().split('T')[0];
+}
+
+function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -7,370 +261,96 @@ function generateUUIDv4() {
 }
 
 function seededRandom(seed) {
-  const x = Math.sin(seed++) * 10000;
-  return x - Math.floor(x);
-}
-
-const CORRELATION_RULES = {
-  medical: {
-    diabetic: {
-      glucose: { bias: 60, range_shift: 0.15 },
-      hba1c: { bias: 2.0, range_shift: 0.15 },
-      bmi: { bias: 4, range_shift: 0.12 },
-      blood_pressure_systolic: { bias: 15, range_shift: 0.1 },
-      cholesterol: { bias: 25, range_shift: 0.12 }
-    },
-    positive: {
-      glucose: { bias: 60, range_shift: 0.15 },
-      hba1c: { bias: 2.0, range_shift: 0.15 },
-      bmi: { bias: 4, range_shift: 0.12 },
-      blood_pressure_systolic: { bias: 15, range_shift: 0.1 },
-      cholesterol: { bias: 25, range_shift: 0.12 }
-    },
-    healthy: {
-      glucose: { bias: -25, range_shift: 0.12 },
-      hba1c: { bias: -0.8, range_shift: 0.1 },
-      bmi: { bias: -2, range_shift: 0.1 },
-      blood_pressure_systolic: { bias: -8, range_shift: 0.1 },
-      cholesterol: { bias: -15, range_shift: 0.1 }
-    },
-    negative: {
-      glucose: { bias: -25, range_shift: 0.12 },
-      hba1c: { bias: -0.8, range_shift: 0.1 },
-      bmi: { bias: -2, range_shift: 0.1 },
-      blood_pressure_systolic: { bias: -8, range_shift: 0.1 },
-      cholesterol: { bias: -15, range_shift: 0.1 }
-    },
-    pre_diabetic: {
-      glucose: { bias: 15, range_shift: 0.12 },
-      hba1c: { bias: 0.5, range_shift: 0.1 },
-      bmi: { bias: 1, range_shift: 0.1 }
-    }
-  },
-  financial: {
-    approved: {
-      credit_score: { bias: 100, range_shift: 0.15 },
-      income: { bias: 30000, range_shift: 0.12 }
-    },
-    default: {
-      credit_score: { bias: -80, range_shift: 0.12 },
-      income: { bias: -20000, range_shift: 0.1 }
-    }
-  }
-};
-
-const INTER_COLUMN_CORRELATIONS = [
-  { source: 'glucose', target: 'hba1c', correlation: 0.6, threshold: 140, direction: 'above' },
-  { source: 'bmi', target: 'blood_pressure_systolic', correlation: 0.45, threshold: 28, direction: 'above' },
-  { source: 'credit_score', target: 'income', correlation: 0.55, threshold: 600, direction: 'above' },
-  { source: 'kills', target: 'kills_deaths_ratio', correlation: 0.75, threshold: 12, direction: 'above' },
-  { source: 'deaths', target: 'win_rate', correlation: -0.55, threshold: 10, direction: 'above' },
-  { source: 'pm25', target: 'aqi', correlation: 0.80, threshold: 50, direction: 'above' }
-];
-
-function process(context) {
-  const schema = context.schema;
-  const rules = context.rules || {};
-  const size = context.size;
-  const seed = context.seed || Date.now();
-  const label_distribution = context.label_distribution || {};
-  const constraints = schema?.constraints || [];
-  const domain = context.domain;
-  
-  if (!schema || !schema.columns) {
-    return {
-      ...context,
-      dataset: [],
-      logs: [...context.logs, { timestamp: new Date().toISOString(), event: 'generator_error', data: { error: 'No schema' } }]
-    };
-  }
-  
-  const dataset = [];
-  const idSet = new Set();
-  const targetColumn = schema.columns.find(c => c.is_target);
-  const targetValues = targetColumn?.categories || [0, 1];
-  const targetDistribution = calculateTargetDistribution(targetValues, label_distribution, size);
-  
-  const generationOrder = rules.generation_order || schema.columns.map(c => c.name);
-  
-  for (let i = 0; i < size; i++) {
-    let row = null;
-    let attempts = 0;
-    
-    while (attempts < 10) {
-      const candidateRow = generateRow(schema.columns, constraints, i, seed, targetColumn, targetValues, targetDistribution[i], domain, generationOrder, rules);
-      
-      const idVal = candidateRow.id;
-      if (idVal && idSet.has(idVal)) {
-        attempts++;
-        continue;
-      }
-      
-      row = candidateRow;
-      if (idVal) idSet.add(idVal);
-      break;
-    }
-    
-    if (!row) {
-      row = generateRow(schema.columns, constraints, i, seed, targetColumn, targetValues, targetDistribution[i], domain, generationOrder, rules);
-    }
-    
-    dataset.push(row);
-  }
-  
-  return {
-    ...context,
-    dataset,
-    logs: [...context.logs, {
-      timestamp: new Date().toISOString(),
-      event: 'generation_complete',
-      data: { 
-        row_count: dataset.length, 
-        unique_ids: idSet.size, 
-        correlation_enforced: true,
-        causal_order_used: generationOrder.length > 0
-      }
-    }]
+  let s = seed;
+  return function() {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    return s / 0x7fffffff;
   };
 }
 
-function generateRow(columns, constraints, index, baseSeed, targetColumn, targetValues, targetValue, domain, generationOrder, rules) {
-  const row = {};
-  const seed = baseSeed + index * 1000 + (Date.now() % 1000);
+function sampleFromDistribution(distribution, seed) {
+  const entries = Object.entries(distribution);
+  if (entries.length === 0) return null;
   
-  const columnMap = new Map(columns.map(c => [c.name, c]));
+  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+  const rand = seededRandom(seed)();
+  let cumulative = 0;
   
-  const orderedColumnNames = generationOrder.filter(name => columnMap.has(name));
-  for (const col of columns) {
-    if (!orderedColumnNames.includes(col.name)) {
-      orderedColumnNames.push(col.name);
-    }
-  }
-  
-  for (const colName of orderedColumnNames) {
-    const col = columnMap.get(colName);
-    if (!col) continue;
-    
-    if (col.is_target) {
-      row[col.name] = targetValue;
-    } else if (col.dtype === 'uuid') {
-      row[col.name] = generateUUIDv4();
-    } else {
-      const correlationContext = buildCorrelationContext(row, targetValue, domain, targetColumn?.name, rules);
-      row[col.name] = generateValue(col, seed, row, targetValue, targetColumn, domain, correlationContext);
-    }
-  }
-  
-  if (rules.deterministic && rules.deterministic.length > 0) {
-    const { applyDeterministicRules } = require('./logic_rules_agent');
-    return applyDeterministicRules(row, rules.deterministic, columns);
-  }
-  
-  return row;
-}
-
-function buildCorrelationContext(row, targetValue, domain, targetName, rules) {
-  const context = {
-    targetValue,
-    domain,
-    targetName,
-    correlatedValues: {},
-    correlations: rules?.correlations || [],
-    deterministicRules: rules?.deterministic || []
-  };
-  
-  for (const colName of Object.keys(row)) {
-    context.correlatedValues[colName] = row[colName];
-  }
-  
-  return context;
-}
-
-function generateValue(column, seed, rowContext, targetValue, targetColumn, domain, correlationContext) {
-  const rand = () => seededRandom(seed + Date.now() % 1000 + column.name.length);
-  const normRand = () => {
-    let u = 0, v = 0;
-    while (u === 0) u = rand();
-    while (v === 0) v = rand();
-    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-  };
-  
-  const [min, max] = column.range || [0, 100];
-  const [adjMin, adjMax, meanShift] = applyCorrelationAdjustment(
-    column.name, min, max, targetValue, targetColumn, domain, rowContext, correlationContext
-  );
-  
-  const baseMean = (adjMin + adjMax) / 2;
-  const baseStd = (adjMax - adjMin) / 6;
-  const adjustedMean = baseMean + meanShift;
-  const adjustedStd = baseStd;
-  
-  switch (column.dtype) {
-    case 'int': {
-      const value = Math.round(Math.max(adjMin, Math.min(adjMax, adjustedMean + normRand() * adjustedStd)));
+  for (const [value, count] of entries) {
+    cumulative += count / total;
+    if (rand <= cumulative) {
       return value;
     }
-    
-    case 'float': {
-      let value = adjustedMean + normRand() * adjustedStd;
-      value = Math.max(adjMin, Math.min(adjMax, value));
-      return parseFloat(value.toFixed(2));
-    }
-    
-    case 'categorical': {
-      const adjustedCategories = applyCategoricalCorrelation(
-        column.categories || ['A', 'B', 'C'],
-        column.name, targetValue, targetColumn, domain, rowContext
-      );
-      return adjustedCategories[Math.floor(rand() * adjustedCategories.length)];
-    }
-    
-    case 'boolean':
-      return applyBooleanCorrelation(column.name, targetValue, domain, rowContext);
-    
-    case 'ordinal': {
-      const values = column.categories || ['low', 'medium', 'high'];
-      return values[Math.floor(rand() * values.length)];
-    }
-    
-    case 'datetime': {
-      const start = new Date('2020-01-01').getTime();
-      const end = new Date('2024-12-31').getTime();
-      return new Date(start + rand() * (end - start)).toISOString();
-    }
-    
-    case 'uuid':
-      return generateUUIDv4();
-    
-    default: {
-      if (Number.isInteger(min) && Number.isInteger(max)) {
-        return Math.round(adjMin + rand() * (adjMax - adjMin));
-      }
-      return parseFloat((adjMin + rand() * (adjMax - adjMin)).toFixed(2));
-    }
+  }
+  
+  return entries[entries.length - 1][0];
+}
+
+function evaluateCondition(condition, row) {
+  // Simple condition evaluation (e.g., "gender == Female")
+  const parts = condition.split('==').map(s => s.trim());
+  if (parts.length === 2) {
+    return row[parts[0]] === parts[1];
+  }
+  return true;
+}
+
+function getDefaultForType(dataType) {
+  switch (dataType) {
+    case 'int': return 0;
+    case 'float': return 0.0;
+    case 'categorical': return 'None';
+    case 'binary': return 'No';
+    case 'boolean': return false;
+    default: return null;
   }
 }
 
-function applyCorrelationAdjustment(colName, min, max, targetValue, targetColumn, domain, rowContext, correlationContext) {
-  let adjMin = min;
-  let adjMax = max;
-  let meanShift = 0;
-  
-  const domainRules = CORRELATION_RULES[domain];
-  if (domainRules) {
-    const targetKey = String(targetValue).toLowerCase();
-    const targetRules = domainRules[targetKey];
-    
-    if (targetRules && targetRules[colName]) {
-      const rule = targetRules[colName];
-      meanShift = rule.bias;
-      const shiftAmount = (max - min) * rule.range_shift * 0.5;
-      adjMin = min + shiftAmount;
-      adjMax = max - shiftAmount;
-    }
-  }
-  
-  for (const corr of INTER_COLUMN_CORRELATIONS) {
-    if (corr.target === colName && rowContext[corr.source] !== undefined) {
-      const sourceValue = rowContext[corr.source];
-      const threshold = corr.threshold;
-      let correlationBoost = 0;
-      
-      if (corr.direction === 'above' && sourceValue > threshold) {
-        const excess = sourceValue - threshold;
-        correlationBoost = excess * corr.correlation * 0.05;
-      } else if (corr.direction === 'below' && sourceValue < threshold) {
-        const deficit = threshold - sourceValue;
-        correlationBoost = -deficit * Math.abs(corr.correlation) * 0.05;
-      }
-      
-      meanShift += correlationBoost;
-    }
-  }
-  
-  return [adjMin, adjMax, meanShift];
-}
-
-function applyCategoricalCorrelation(categories, colName, targetValue, targetColumn, domain, rowContext) {
-  if (!targetValue || !targetColumn) return categories;
-  
-  const medicalOverrides = {
-    activity_level: {
-      diabetic: ['sedentary', 'light', 'moderate'],
-      healthy: ['moderate', 'active', 'very_active'],
-      pre_diabetic: ['light', 'moderate', 'active']
-    }
+function calculateDatasetStatistics(dataset, schema) {
+  const stats = {
+    rowCount: dataset.length,
+    columnCount: dataset[0] ? Object.keys(dataset[0]).length : 0
   };
   
-  if (domain === 'medical' && medicalOverrides[colName]) {
-    const targetKey = String(targetValue).toLowerCase();
-    if (medicalOverrides[colName][targetKey]) {
-      return medicalOverrides[colName][targetKey];
-    }
+  const targetColumn = schema.columns.find(c => c.isTarget);
+  if (targetColumn && targetColumn.dataType === 'categorical') {
+    const dist = {};
+    dataset.forEach(row => {
+      const val = row[targetColumn.name];
+      dist[val] = (dist[val] || 0) + 1;
+    });
+    stats.targetDistribution = dist;
   }
   
-  return categories;
+  // Calculate numeric statistics for key columns
+  const numericCols = schema.columns.filter(c => c.dataType === 'int' || c.dataType === 'float');
+  stats.numericStats = {};
+  
+  numericCols.forEach(col => {
+    const values = dataset.map(r => r[col.name]).filter(v => typeof v === 'number');
+    if (values.length > 0) {
+      const sum = values.reduce((a, b) => a + b, 0);
+      const mean = sum / values.length;
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      
+      stats.numericStats[col.name] = {
+        mean: parseFloat(mean.toFixed(2)),
+        min: parseFloat(min.toFixed(2)),
+        max: parseFloat(max.toFixed(2))
+      };
+    }
+  });
+  
+  return stats;
 }
 
-function applyBooleanCorrelation(colName, targetValue, domain, rowContext) {
-  const domainSpecificLogic = {
-    medical: {
-      smoking_history: { diabetic: 0.7, healthy: 0.3, pre_diabetic: 0.5 },
-      hypertension: { diabetic: 0.6, healthy: 0.2, pre_diabetic: 0.4 }
-    },
-    financial: {
-      has_existing_loans: { approved: 0.3, default: 0.7 }
-    }
+function createLog(event, data) {
+  return {
+    timestamp: new Date().toISOString(),
+    event,
+    data
   };
-  
-  if (domainSpecificLogic[domain]?.[colName]) {
-    const targetKey = String(targetValue).toLowerCase();
-    const probabilities = domainSpecificLogic[domain][colName];
-    if (probabilities[targetKey] !== undefined) {
-      return Math.random() < probabilities[targetKey];
-    }
-  }
-  
-  return Math.random() > 0.5;
-}
-
-function calculateTargetDistribution(targetValues, labelDistribution, size) {
-  const distribution = [];
-  const weights = {};
-  
-  if (typeof labelDistribution === 'object' && !Array.isArray(labelDistribution)) {
-    Object.assign(weights, labelDistribution);
-  } else if (targetValues.length === 2) {
-    weights[targetValues[0]] = 0.65;
-    weights[targetValues[1]] = 0.35;
-  } else {
-    const equal = 1 / targetValues.length;
-    for (const v of targetValues) {
-      weights[v] = equal;
-    }
-  }
-  
-  const entries = Object.entries(weights);
-  const totalWeight = entries.reduce((sum, [, w]) => sum + w, 0);
-  
-  for (let i = 0; i < size; i++) {
-    const r = Math.random() * totalWeight;
-    let cumulative = 0;
-    
-    for (const [value, weight] of entries) {
-      cumulative += weight;
-      if (r <= cumulative) {
-        distribution.push(value);
-        break;
-      }
-    }
-    
-    if (distribution.length <= i) {
-      distribution.push(entries[0][0]);
-    }
-  }
-  
-  return distribution;
 }
 
 module.exports = { process };

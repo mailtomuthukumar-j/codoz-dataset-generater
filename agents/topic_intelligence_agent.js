@@ -1,85 +1,231 @@
+/**
+ * CODOZ Topic Intelligence Agent
+ * 
+ * Deep topic analysis that:
+ * 1. Captures the topic
+ * 2. Matches to knowledge base
+ * 3. Extracts semantic understanding
+ * 4. Prepares information for dataset construction
+ */
+
+const { matchTopic, KNOWLEDGE_BASE, getAllTopics } = require('../core/knowledge_base');
+
 function process(context) {
   const topic = context.topic;
   
+  if (!topic || topic.trim().length === 0) {
+    return {
+      ...context,
+      error: 'Topic is required',
+      logs: [...context.logs, createLog('error', 'Topic is required')]
+    };
+  }
+  
+  console.log('━'.repeat(60));
+  console.log('PHASE 1: TOPIC INTELLIGENCE');
+  console.log('━'.repeat(60));
+  console.log(`\nCapturing topic: "${topic}"`);
+  
+  // Step 1: Deep topic analysis
   const analysis = analyzeTopic(topic);
+  console.log(`\nAnalyzing topic components...`);
+  console.log(`  - Primary entity: ${analysis.entity}`);
+  console.log(`  - Context: ${analysis.context}`);
+  console.log(`  - Intent: ${analysis.intent}`);
   
-  const ontology = {
-    primary_domain: analysis.domain,
-    sub_domain: analysis.subdomain,
-    ml_task_type: analysis.task_type,
-    target_variable: analysis.target_column,
-    target_distribution_hint: analysis.distribution_hint,
-    core_entities: analysis.key_entities
-  };
+  // Step 2: Match to knowledge base
+  const match = matchTopicToKnowledgeBase(topic);
   
-  return {
-    ...context,
-    domain: analysis.domain,
-    subdomain: analysis.subdomain,
-    task_type: analysis.task_type,
-    target_column: analysis.target_column,
-    target_values: analysis.target_values,
-    key_entities: analysis.key_entities,
-    temporal: analysis.temporal,
-    geospatial: analysis.geospatial,
-    ontology,
-    search_queries: [
-      `${topic} dataset machine learning`,
-      `${topic} UCI kaggle dataset`,
-      `${topic} open source data`
-    ],
-    logs: [...context.logs, {
-      timestamp: new Date().toISOString(),
-      event: 'topic_intelligence_complete',
-      data: { domain: analysis.domain, subdomain: analysis.subdomain, task_type: analysis.task_type, ontology }
-    }]
-  };
+  if (match) {
+    console.log(`\nKnowledge base match found!`);
+    console.log(`  - Matched topic: ${match.config.name}`);
+    console.log(`  - Confidence: ${(match.confidence * 100).toFixed(0)}}%`);
+    console.log(`  - Entity: ${match.config.entity}`);
+    console.log(`  - Description: ${match.config.description}`);
+    
+    // Step 3: Build comprehensive understanding
+    const understanding = buildDeepUnderstanding(topic, analysis, match);
+    
+    console.log(`\nBuilding understanding...`);
+    console.log(`  - Target variable: ${understanding.target.name}`);
+    console.log(`  - Target type: ${understanding.target.type}`);
+    console.log(`  - Target values: ${understanding.target.values.join(', ')}`);
+    console.log(`  - Feature categories: ${Object.keys(understanding.features).length}`);
+    console.log(`  - Causal rules: ${understanding.causalRules.length}`);
+    
+    // Step 4: Generate information requirements
+    const infoGathering = prepareInformationGathering(understanding);
+    
+    return {
+      ...context,
+      topicAnalysis: understanding,
+      knowledgeBaseMatch: match,
+      informationGathering: infoGathering,
+      entity: match.config.entity,
+      context: match.config.context,
+      target: understanding.target,
+      features: understanding.features,
+      causalRules: understanding.causalRules,
+      logs: [...context.logs, createLog('topic_intelligence_complete', {
+        topic: match.config.name,
+        entity: match.config.entity,
+        target: understanding.target.name,
+        featureCount: understanding.totalFeatures,
+        confidence: match.confidence
+      })]
+    };
+  } else {
+    // Handle unknown topic - generate reasonable schema
+    console.log(`\nNo exact match found. Generating custom schema...`);
+    const customUnderstanding = generateCustomSchema(topic, analysis);
+    
+    return {
+      ...context,
+      topicAnalysis: customUnderstanding,
+      knowledgeBaseMatch: null,
+      informationGathering: null,
+      entity: analysis.entity,
+      context: analysis.context,
+      target: customUnderstanding.target,
+      features: customUnderstanding.features,
+      causalRules: customUnderstanding.causalRules,
+      logs: [...context.logs, createLog('topic_intelligence_complete', {
+        topic: 'custom',
+        entity: analysis.entity,
+        target: customUnderstanding.target.name,
+        featureCount: customUnderstanding.totalFeatures,
+        confidence: 0.5
+      })]
+    };
+  }
 }
 
 function analyzeTopic(topic) {
-  const topicLower = topic.toLowerCase();
-  const words = topicLower.split(/\s+/).filter(w => w.length > 2);
+  const normalized = topic.toLowerCase().trim();
+  const words = normalized.split(/\s+/);
   
-  const domain = inferDomain(words);
-  const subdomain = inferSubdomain(words, domain);
-  const task_type = inferTaskType(topicLower);
-  const target_column = inferTargetColumn(words, domain, task_type);
-  const target_values = inferTargetValues(target_column, task_type);
-  const key_entities = extractEntities(words, domain);
-  const temporal = inferTemporal(words);
-  const geospatial = inferGeospatial(words);
-  const distribution_hint = inferDistributionHint(domain, task_type);
+  // Extract entity (what is being studied)
+  const entity = inferEntity(words);
+  
+  // Extract context (where/when)
+  const context = inferContext(words);
+  
+  // Extract intent (what action/prediction)
+  const intent = inferIntent(normalized);
+  
+  // Extract modifiers (binary, multi-class, regression)
+  const modifiers = extractModifiers(normalized);
   
   return {
-    domain,
-    subdomain,
-    task_type,
-    target_column,
-    target_values,
-    key_entities,
-    temporal,
-    geospatial,
-    distribution_hint
+    raw: topic,
+    normalized,
+    words,
+    entity,
+    context,
+    intent,
+    modifiers,
+    domain: inferDomain(words)
   };
+}
+
+function inferEntity(words) {
+  const entityPatterns = {
+    patient: ['patient', 'person', 'individual', 'customer', 'client', 'user'],
+    student: ['student', 'learner', 'scholar'],
+    employee: ['employee', 'worker', 'staff', 'personnel'],
+    transaction: ['transaction', 'purchase', 'order', 'payment'],
+    machine: ['machine', 'equipment', 'device', 'sensor', 'machine'],
+    customer: ['customer', 'client', 'subscriber', 'user'],
+    record: ['record', 'case', 'observation', 'entry'],
+    sample: ['sample', 'specimen', 'measurement']
+  };
+  
+  for (const [entity, patterns] of Object.entries(entityPatterns)) {
+    for (const word of words) {
+      if (patterns.includes(word)) {
+        return entity;
+      }
+    }
+  }
+  
+  return 'record';
+}
+
+function inferContext(words) {
+  const contextPatterns = {
+    medical: ['hospital', 'clinic', 'diagnosis', 'treatment', 'health', 'clinical'],
+    financial: ['bank', 'credit', 'loan', 'fraud', 'transaction', 'payment'],
+    retail: ['store', 'shop', 'purchase', 'customer', 'inventory'],
+    educational: ['school', 'university', 'college', 'student', 'course', 'grade'],
+    industrial: ['factory', 'manufacturing', 'machine', 'production', 'maintenance'],
+    environmental: ['sensor', 'monitoring', 'air', 'water', 'climate'],
+    hr: ['employee', 'hr', 'workforce', 'attrition', 'performance']
+  };
+  
+  for (const [context, patterns] of Object.entries(contextPatterns)) {
+    for (const word of words) {
+      if (patterns.includes(word)) {
+        return context;
+      }
+    }
+  }
+  
+  return 'general';
+}
+
+function inferIntent(normalized) {
+  if (normalized.includes('predict') || normalized.includes('prediction')) {
+    return 'prediction';
+  }
+  if (normalized.includes('detect') || normalized.includes('detection')) {
+    return 'detection';
+  }
+  if (normalized.includes('classify') || normalized.includes('classification')) {
+    return 'classification';
+  }
+  if (normalized.includes('segment') || normalized.includes('clustering')) {
+    return 'segmentation';
+  }
+  if (normalized.includes('analyze') || normalized.includes('analysis')) {
+    return 'analysis';
+  }
+  if (normalized.includes('monitor') || normalized.includes('monitoring')) {
+    return 'monitoring';
+  }
+  return 'classification';
+}
+
+function extractModifiers(normalized) {
+  const modifiers = [];
+  
+  if (normalized.includes('binary')) {
+    modifiers.push('binary');
+  }
+  if (normalized.includes('multi-class') || normalized.includes('multiclass')) {
+    modifiers.push('multi-class');
+  }
+  if (normalized.includes('regression') || normalized.includes('continuous')) {
+    modifiers.push('regression');
+  }
+  if (normalized.includes('time series') || normalized.includes('temporal')) {
+    modifiers.push('temporal');
+  }
+  if (normalized.includes('imbalanced')) {
+    modifiers.push('imbalanced');
+  }
+  
+  return modifiers;
 }
 
 function inferDomain(words) {
   const domainIndicators = {
-    medical: ['health', 'medical', 'patient', 'doctor', 'hospital', 'clinic', 'disease', 'diagnosis', 'treatment', 'symptom', 'clinical', 'therapy', 'diabetes', 'cancer', 'heart', 'blood', 'glucose', 'cholesterol', 'blood_pressure', 'bmi', 'insulin'],
-    financial: ['bank', 'finance', 'credit', 'loan', 'mortgage', 'investment', 'stock', 'market', 'fraud', 'transaction', 'payment', 'insurance', 'risk'],
-    education: ['school', 'student', 'university', 'college', 'grade', 'gpa', 'score', 'exam', 'course', 'teacher', 'learning', 'academic', 'education'],
-    retail: ['store', 'shop', 'customer', 'purchase', 'sale', 'product', 'retail', 'transaction', 'cart', 'order', 'inventory', 'market'],
-    environmental: ['climate', 'weather', 'temperature', 'pollution', 'air', 'water', 'soil', 'carbon', 'emission', 'environmental', 'sustainable', 'green'],
-    social: ['social', 'twitter', 'instagram', 'facebook', 'user', 'post', 'follow', 'engagement', 'influencer', 'media', 'content'],
-    hr: ['employee', 'hire', 'recruit', 'job', 'career', 'salary', 'performance', 'workforce', 'talent', 'organization', 'management'],
-    telecom: ['phone', 'mobile', 'call', 'data', 'network', 'carrier', 'wireless', 'cellular', 'subscription', 'telecom'],
-    ecommerce: ['online', 'shop', 'order', 'delivery', 'shipping', 'product', 'review', 'rating', 'amazon', 'website'],
-    agriculture: ['farm', 'crop', 'harvest', 'soil', 'plant', 'yield', 'agriculture', 'livestock', 'irrigation', 'farmer'],
-    technology: ['software', 'code', 'developer', 'bug', 'server', 'cloud', 'deployment', 'api', 'database', 'programming'],
-    sports: ['player', 'team', 'game', 'match', 'score', 'sport', 'athlete', 'tournament', 'league', 'championship'],
-    engineering: ['machine', 'engineer', 'manufacture', 'quality', 'production', 'factory', 'maintenance', 'equipment'],
-    transportation: ['vehicle', 'driver', 'traffic', 'route', 'transport', 'delivery', 'logistics', 'fleet', 'shipping'],
-    scientific: ['research', 'experiment', 'science', 'laboratory', 'scientific', 'hypothesis', 'analysis', 'study']
+    medical: ['medical', 'health', 'patient', 'diagnosis', 'disease', 'clinical', 'hospital', 'doctor'],
+    financial: ['credit', 'loan', 'fraud', 'bank', 'payment', 'transaction', 'insurance'],
+    retail: ['customer', 'purchase', 'sale', 'product', 'inventory', 'store'],
+    educational: ['student', 'school', 'university', 'grade', 'academic', 'education'],
+    industrial: ['machine', 'manufacturing', 'equipment', 'maintenance', 'factory'],
+    environmental: ['sensor', 'environment', 'climate', 'air', 'water', 'pollution'],
+    hr: ['employee', 'hr', 'workforce', 'attrition', 'hiring']
   };
   
   const scores = {};
@@ -87,202 +233,182 @@ function inferDomain(words) {
   for (const [domain, indicators] of Object.entries(domainIndicators)) {
     scores[domain] = 0;
     for (const word of words) {
-      for (const indicator of indicators) {
-        if (word.includes(indicator) || indicator.includes(word)) {
-          scores[domain] += indicator.length / word.length;
-        }
+      if (indicators.includes(word)) {
+        scores[domain]++;
       }
     }
   }
   
-  let bestDomain = 'technology';
-  let bestScore = 0;
-  
-  for (const [domain, score] of Object.entries(scores)) {
-    if (score > bestScore) {
-      bestScore = score;
-      bestDomain = domain;
-    }
-  }
-  
-  return bestDomain;
+  const maxDomain = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  return maxDomain[1] > 0 ? maxDomain[0] : 'general';
 }
 
-function inferSubdomain(words, domain) {
-  if (words.length === 0) return domain;
+function matchTopicToKnowledgeBase(topic) {
+  const match = matchTopic(topic);
   
-  const mainWord = words[0];
+  if (match && match.confidence >= 0.3) {
+    return match;
+  }
   
-  const subdomains = {
-    medical: ['cardiology', 'diabetes', 'oncology', 'neurology', 'psychiatry', 'pediatrics', 'surgery', 'radiology'],
-    financial: ['banking', 'investment', 'insurance', 'trading', 'credit', 'lending', 'risk'],
-    education: ['primary', 'secondary', 'higher', 'vocational', 'online', 'adult'],
-    retail: ['e-commerce', 'brick', 'fashion', 'grocery', 'electronics'],
-    environmental: ['climate', 'pollution', 'conservation', 'energy', 'waste'],
-    social: ['marketing', 'engagement', 'analytics', 'influencer'],
-    hr: ['recruiting', 'training', 'compensation', 'performance'],
-    telecom: ['wireless', 'broadband', 'enterprise', 'consumer'],
-    ecommerce: ['b2b', 'b2c', 'marketplace', 'subscription'],
-    agriculture: ['crop', 'livestock', 'dairy', 'organic'],
-    technology: ['saas', 'infrastructure', 'security', 'data'],
-    sports: ['football', 'basketball', 'esports', 'baseball'],
-    engineering: ['mechanical', 'electrical', 'civil', 'software'],
-    transportation: ['automotive', 'logistics', 'public', 'aviation'],
-    scientific: ['physics', 'chemistry', 'biology', 'genomics']
+  return null;
+}
+
+function buildDeepUnderstanding(topic, analysis, match) {
+  const config = match.config;
+  
+  // Build target variable
+  const target = {
+    name: config.target.name,
+    type: config.target.type,
+    values: config.target.values,
+    positiveLabel: config.target.positive_label,
+    description: getTargetDescription(config.target)
   };
   
-  const domainSubs = subdomains[domain] || [];
+  // Build features grouped by category
+  const features = {};
+  let totalFeatures = 0;
   
-  for (const sub of domainSubs) {
-    for (const word of words) {
-      if (word.includes(sub) || sub.includes(word)) {
-        return sub;
-      }
+  for (const [category, featureList] of Object.entries(config.features)) {
+    features[category] = featureList.map(f => ({
+      ...f,
+      isCritical: f.critical || false,
+      hasConditional: f.conditional || null
+    }));
+    totalFeatures += featureList.length;
+  }
+  
+  // Build causal rules
+  const causalRules = config.causal_rules.map(rule => ({
+    ...rule,
+    type: rule.target_value ? 'target_rule' : 'correlation'
+  }));
+  
+  return {
+    topic: config.name,
+    description: config.description,
+    entity: config.entity,
+    context: config.context,
+    target,
+    features,
+    totalFeatures,
+    causalRules,
+    classDistribution: config.statistics.class_distribution,
+    matchConfidence: match.confidence
+  };
+}
+
+function getTargetDescription(target) {
+  if (target.clinical_definition) {
+    const def = target.clinical_definition;
+    if (def.positive) {
+      return `Positive class defined as: ${def.positive}`;
     }
   }
-  
-  return words.slice(0, 2).join(' ');
+  return `Predict ${target.values.join(' vs ')}`;
 }
 
-function inferTaskType(topic) {
-  if (topic.includes('predict') || topic.includes('forecast')) return 'regression';
-  if (topic.includes('detect') || topic.includes('fraud') || topic.includes('anomaly')) return 'anomaly_detection';
-  if (topic.includes('cluster') || topic.includes('segment')) return 'clustering';
-  if (topic.includes('rank') || topic.includes('score')) return 'ranking';
-  if (topic.includes('time') || topic.includes('series') || topic.includes('trend')) return 'time_series';
-  return 'classification';
+function generateCustomSchema(topic, analysis) {
+  const topicLower = topic.toLowerCase();
+  
+  // Determine target based on intent
+  let targetName = 'target';
+  let targetType = 'binary_classification';
+  let targetValues = ['Class_A', 'Class_B'];
+  
+  if (analysis.modifiers.includes('regression')) {
+    targetType = 'regression';
+    targetValues = [0, 100];
+  } else if (analysis.modifiers.includes('multi-class')) {
+    targetType = 'multi_class_classification';
+    targetValues = ['Class_A', 'Class_B', 'Class_C'];
+  }
+  
+  // Generate generic features based on entity
+  const features = generateGenericFeatures(analysis.entity, analysis.context);
+  
+  return {
+    topic: topic,
+    description: `Custom dataset for: ${topic}`,
+    entity: analysis.entity,
+    context: analysis.context,
+    target: {
+      name: targetName,
+      type: targetType,
+      values: targetValues,
+      description: 'Target variable to predict'
+    },
+    features,
+    totalFeatures: Object.values(features).reduce((sum, arr) => sum + arr.length, 0),
+    causalRules: [],
+    classDistribution: { 'Class_A': 0.7, 'Class_B': 0.3 },
+    matchConfidence: 0.5
+  };
 }
 
-function inferTargetColumn(words, domain, task_type) {
-  const suffix = task_type === 'regression' ? '_value' : '_status';
-  
-  const firstWord = words[0] || domain;
-  
-  if (domain === 'medical') {
-    if (task_type === 'classification') return 'diagnosis';
-    return 'health_score';
-  }
-  if (domain === 'financial') {
-    if (task_type === 'classification') return 'approval_status';
-    return 'credit_score';
-  }
-  if (domain === 'education') {
-    if (task_type === 'classification') return 'pass_status';
-    return 'score';
-  }
-  if (domain === 'retail') {
-    if (task_type === 'classification') return 'purchase_status';
-    return 'order_value';
-  }
-  if (domain === 'social') {
-    return 'engagement_level';
-  }
-  if (domain === 'hr') {
-    if (task_type === 'classification') return 'attrition_status';
-    return 'performance_score';
-  }
-  
-  return `${firstWord}${suffix}`;
-}
-
-function inferTargetValues(target_column, task_type) {
-  if (task_type === 'regression' || task_type === 'time_series') {
-    return [0, 100];
-  }
-  
-  if (target_column.includes('status') || target_column.includes('approved')) {
-    return ['Rejected', 'Approved'];
-  }
-  if (target_column.includes('diagnosis') || target_column.includes('disease')) {
-    return ['Negative', 'Positive'];
-  }
-  if (target_column.includes('risk') || target_column.includes('level')) {
-    return ['Low', 'Medium', 'High'];
-  }
-  if (target_column.includes('fraud') || target_column.includes('default')) {
-    return ['Normal', 'Fraudulent'];
-  }
-  if (target_column.includes('churn') || target_column.includes('attrition')) {
-    return ['Retained', 'Churned'];
-  }
-  if (target_column.includes('pass') || target_column.includes('completion')) {
-    return ['Fail', 'Pass'];
-  }
-  if (target_column.includes('sentiment') || target_column.includes('opinion')) {
-    return ['Negative', 'Neutral', 'Positive'];
-  }
-  
-  return ['No', 'Yes'];
-}
-
-function extractEntities(words, domain) {
-  const entities = [...words];
-  
-  const entitySuffixes = ['id', 'count', 'rate', 'score', 'amount', 'value', 'status', 'type', 'level'];
-  
-  for (const word of words) {
-    for (const suffix of entitySuffixes) {
-      if (word.endsWith(suffix) && word.length > suffix.length + 2) {
-        entities.push(word);
-      }
-    }
-  }
-  
-  return [...new Set(entities)].slice(0, 10);
-}
-
-function inferTemporal(words) {
-  const temporalWords = ['time', 'date', 'daily', 'monthly', 'yearly', 'hourly', 'historical', 'series', 'trend', 'temporal', 'seasonal'];
-  
-  for (const word of words) {
-    for (const temp of temporalWords) {
-      if (word.includes(temp)) return true;
-    }
-  }
-  
-  return false;
-}
-
-function inferGeospatial(words) {
-  const geoWords = ['location', 'city', 'region', 'country', 'state', 'area', 'zone', 'latitude', 'longitude', 'gps'];
-  const locations = ['california', 'texas', 'europe', 'asia', 'urban', 'rural'];
-  
-  for (const word of words) {
-    for (const geo of geoWords) {
-      if (word.includes(geo)) return true;
-    }
-    for (const loc of locations) {
-      if (word.includes(loc)) return true;
-    }
-  }
-  
-  return false;
-}
-
-function inferDistributionHint(domain, task_type) {
-  if (task_type === 'regression') {
-    return 'normally_distributed';
-  }
-  
-  const distributionHints = {
-    medical: 'heavily_skewed',
-    financial: 'heavily_skewed',
-    education: 'normal',
-    retail: 'heavily_skewed',
-    environmental: 'normal',
-    social: 'heavily_skewed',
-    hr: 'normal',
-    telecom: 'heavily_skewed',
-    ecommerce: 'heavily_skewed',
-    agriculture: 'normal',
-    technology: 'normal',
-    sports: 'normal',
-    engineering: 'normal',
-    transportation: 'heavily_skewed',
-    scientific: 'normal'
+function generateGenericFeatures(entity, context) {
+  const features = {
+    identifiers: [
+      { name: 'id', type: 'uuid', description: 'Unique identifier' }
+    ],
+    demographics: [
+      { name: 'age', type: 'integer', range: [18, 80], unit: 'years' },
+      { name: 'gender', type: 'categorical', categories: ['Male', 'Female'] }
+    ],
+    measurements: [
+      { name: 'value_1', type: 'float', range: [0, 100], description: 'Primary measurement' },
+      { name: 'value_2', type: 'float', range: [0, 100], description: 'Secondary measurement' },
+      { name: 'score', type: 'float', range: [0, 100], description: 'Composite score' }
+    ],
+    categorical: [
+      { name: 'category', type: 'categorical', categories: ['A', 'B', 'C', 'D'], description: 'Category classification' },
+      { name: 'status', type: 'categorical', categories: ['Low', 'Medium', 'High'], description: 'Status level' }
+    ]
   };
   
-  return distributionHints[domain] || 'normal';
+  return features;
+}
+
+function prepareInformationGathering(understanding) {
+  return {
+    requiredInformation: {
+      datasetName: understanding.topic,
+      entity: understanding.entity,
+      context: understanding.context,
+      targetVariable: understanding.target.name,
+      targetType: understanding.target.type,
+      expectedRows: 1000,
+      featureCount: understanding.totalFeatures,
+      causalRuleCount: understanding.causalRules.length
+    },
+    
+    schemaRequirements: {
+      mustInclude: understanding.features.demographics?.map(f => f.name) || [],
+      critical: Object.values(understanding.features)
+        .flat()
+        .filter(f => f.critical)
+        .map(f => f.name) || [],
+      optional: Object.values(understanding.features)
+        .flat()
+        .filter(f => !f.critical)
+        .map(f => f.name) || []
+    },
+    
+    generationRules: {
+      targetFirst: true,
+      applyCausalRules: true,
+      enforceThresholds: true,
+      preserveCorrelations: true
+    }
+  };
+}
+
+function createLog(event, data) {
+  return {
+    timestamp: new Date().toISOString(),
+    event,
+    data
+  };
 }
 
 module.exports = { process };
