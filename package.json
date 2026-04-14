@@ -1,0 +1,33 @@
+{
+  "name": "codoz-dataset-generator",
+  "version": "1.0.0",
+  "description": "Production-grade AI Dataset Engine for ML-ready synthetic data generation",
+  "main": "cli.js",
+  "bin": {
+    "codoz": "./cli.js"
+  },
+  "scripts": {
+    "start": "node cli.js",
+    "generate": "node cli.js generate",
+    "test": "node cli.js test"
+  },
+  "keywords": [
+    "dataset",
+    "synthetic-data",
+    "machine-learning",
+    "data-generation",
+    "cli"
+  ],
+  "author": "CODOZ",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "cli-table3": "^0.6.3",
+    "ora": "^5.4.1",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

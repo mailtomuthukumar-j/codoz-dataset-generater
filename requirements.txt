@@ -1,0 +1,23 @@
+# Python Dependencies for CODOZ Dataset Engine
+
+# Core
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Validation & Processing
+jsonschema>=4.17.0
+pydantic>=2.0.0
+
+# Output Formats
+python-json-logger>=2.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+tqdm>=4.65.0
+
+# Development
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.0.0
+ruff>=0.1.0
+mypy>=1.5.0
