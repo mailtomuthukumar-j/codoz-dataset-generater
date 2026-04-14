@@ -3,83 +3,91 @@
 **Production-grade AI Dataset Engine for ML-ready synthetic data generation.**
 
 ```
-npx codoz dataset generate diabetes dataset --size 10 --format json
+npx codoz dataset diabetes
 ```
 
 ## Features
 
-- Generate synthetic ML-ready datasets
+- Interactive & non-interactive modes
 - Multiple formats: JSON, CSV, JSONL
-- Auto domain detection (medical, financial, education, retail, etc.)
+- Auto domain detection
 - CLI and API modes
 
 ## Quick Start
 
-### CLI Mode
-```bash
-npx codoz dataset generate <topic> [options]
-
-Options:
-  -s, --size <number>     Number of rows (default: 500)
-  -f, --format <type>     Output format: json, csv, jsonl (default: json)
-      --seed <number>     Random seed for reproducibility (default: 42)
-```
-
-### Examples
+### Interactive Mode (Recommended)
 
 ```bash
-# Generate diabetes dataset (JSON)
-npx codoz dataset generate diabetes dataset --size 10
-
-# Generate loan default dataset (CSV)
-npx codoz dataset generate loan default prediction --format csv --size 100
-
-# Generate student performance dataset (JSONL)
-npx codoz dataset generate student performance --format jsonl --size 50
+npx codoz dataset
 ```
+
+Flow:
+```
+📊 CODOZ Dataset Generator
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+? Dataset Topic: diabetes
+? Enter dataset size: 10
+? Select dataset format:
+    json
+  ❯ csv
+    jsonl
+? Confirm generation? Yes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 Summary:
+   Topic:  diabetes
+   Size:   10
+   Format: json
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔄 Generating dataset...
+
+✅ Generation completed!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📁 FILES GENERATED:
+
+   Dataset:  codoz-dataset/dataset.json
+   Metadata: codoz-dataset/metadata.json
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### Non-Interactive Mode
+
+```bash
+npx codoz dataset diabetes --size 10 --format json
+npx codoz generate loan default prediction --size 100 --format csv
+```
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--size, -s` | Number of rows | 500 |
+| `--format, -f` | Output format (json/csv/jsonl) | json |
+| `--yes, -y` | Skip confirmation | false |
 
 ### API Mode
 
 ```bash
-node api.js '{"topic":"diabetes dataset","size":3,"format":"json"}'
-```
-
-Returns:
-```json
-{
-  "success": true,
-  "data": {
-    "dataset_name": "diabetes_dataset",
-    "format": "json",
-    "records": [...],
-    "row_count": 3
-  },
-  "meta": {
-    "domain": "medical",
-    "subdomain": "diabetes",
-    "task_type": "classification",
-    "target_column": "outcome",
-    "seed": 42,
-    "label_distribution": {"diabetic": 1, "healthy": 1}
-  },
-  "errors": null
-}
+node api.js '{"topic":"diabetes","size":3,"format":"json"}'
 ```
 
 ## Supported Domains
 
 | Domain | Examples |
 |--------|----------|
-| Medical | diabetes, heart disease, patient records |
-| Financial | loan default, fraud detection, credit scoring |
-| Education | student performance, exam scores |
-| Retail | customer churn, sales data |
-| Environmental | air quality, pollution metrics |
-| Social | influencer metrics, engagement data |
+| Medical | diabetes, heart disease |
+| Financial | loan default, fraud detection |
+| Education | student performance |
+| Retail | customer churn |
+| Environmental | air quality |
+| Social | influencer metrics |
 
 ## Output
 
-Generates files in `codoz-dataset/`:
 ```
 codoz-dataset/
 ├── dataset.json    (or .csv, .jsonl)
@@ -93,7 +101,7 @@ git clone https://github.com/mailtomuthukumar-j/codoz-dataset-generater.git
 cd codoz-dataset-generater
 npm install
 npm link
-codoz dataset generate test dataset
+codoz dataset
 ```
 
 ## License
