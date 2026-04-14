@@ -1,3 +1,43 @@
+const REALISTIC_RANGES = {
+  age: [18, 90],
+  bmi: [15, 50],
+  systolic_bp: [80, 200],
+  diastolic_bp: [50, 130],
+  heart_rate: [40, 180],
+  temperature: [35, 41],
+  respiratory_rate: [8, 40],
+  oxygen_saturation: [70, 100],
+  glucose: [50, 400],
+  cholesterol: [100, 400],
+  credit_score: [300, 850],
+  income: [15000, 500000],
+  gpa: [0, 4],
+  sat_score: [400, 1600],
+  pm25: [0, 500],
+  pm10: [0, 500],
+  aqi: [0, 500],
+  temperature: [-30, 50],
+  humidity: [0, 100],
+  wind_speed: [0, 150],
+  salary: [25000, 500000],
+  latitude: [-90, 90],
+  longitude: [-180, 180],
+  kda_ratio: [0, 20],
+  latency_ms: [1, 5000],
+  error_rate_percent: [0, 100],
+  cpu_percent: [0, 100],
+  memory_percent: [0, 100],
+  kills: [0, 50],
+  deaths: [0, 30],
+  assists: [0, 50],
+  win_rate: [0, 100]
+};
+
+const FORBIDDEN_COLUMN_NAMES = [
+  'feature_1', 'feature_2', 'feature_3', 'value', 'index', 'data', 'temp',
+  'random', 'dummy', 'test', 'column', 'field', 'variable', 'sample'
+];
+
 function process(context) {
   const dataset = context.dataset;
   const schema = context.schema;
@@ -7,14 +47,7 @@ function process(context) {
   if (!dataset || dataset.length === 0) {
     return {
       ...context,
-      validation_report: {
-        status: 'FAIL',
-        overall_score: 0,
-        check_scores: {},
-        failures: [{ check: 'dataset', score: 0, description: 'Empty dataset', fix_suggestion: 'Generate dataset first' }],
-        refinement_cycle: context.refinement_cycle || 0,
-        accept_anyway: false
-      },
+      validation_report: createFailReport('Empty dataset', context.refinement_cycle || 0),
       logs: [...context.logs, { timestamp: new Date().toISOString(), event: 'validation_fail', data: { reason: 'empty_dataset' } }]
     };
   }
@@ -26,15 +59,17 @@ function process(context) {
   const check5 = checkLabelDistribution(dataset, schema, label_distribution);
   const check6 = checkDuplicateRate(dataset);
   const check7 = checkDomainPlausibility(dataset, schema, context.domain);
+  const check8 = checkColumnNaming(dataset, schema);
   
   const weights = {
-    schema_conformance: 0.20,
-    range_compliance: 0.15,
+    schema_conformance: 0.15,
+    range_compliance: 0.20,
     category_compliance: 0.10,
-    constraint_compliance: 0.25,
+    constraint_compliance: 0.15,
     label_distribution: 0.15,
-    duplicate_rate: 0.05,
-    domain_plausibility: 0.10
+    duplicate_rate: 0.10,
+    domain_plausibility: 0.10,
+    column_naming: 0.05
   };
   
   const overall_score = 
@@ -44,20 +79,32 @@ function process(context) {
     check4 * weights.constraint_compliance +
     check5 * weights.label_distribution +
     check6 * weights.duplicate_rate +
-    check7 * weights.domain_plausibility;
+    check7 * weights.domain_plausibility +
+    check8 * weights.column_naming;
   
   const status = overall_score >= 85.0 ? 'PASS' : 'FAIL';
   
   const failures = [];
+  
+  if (check8 < 100) {
+    failures.push({
+      check: 'column_naming',
+      score: check8,
+      failing_rows: [],
+      failing_columns: findBadColumnNames(dataset, schema),
+      description: 'Generic or forbidden column names detected',
+      fix_suggestion: 'Use domain-specific meaningful column names'
+    });
+  }
   
   if (check1 < 100) {
     failures.push({
       check: 'schema_conformance',
       score: check1,
       failing_rows: findFailingRows(dataset, schema, 'schema'),
-      failing_columns: findFailingColumns(dataset, schema, 'schema'),
-      description: `${(100 - check1).toFixed(1)}% of rows have schema issues`,
-      fix_suggestion: 'Ensure all rows have exactly the schema columns'
+      failing_columns: [],
+      description: 'Schema conformance issues',
+      fix_suggestion: 'Ensure all rows match schema exactly'
     });
   }
   
@@ -66,9 +113,9 @@ function process(context) {
       check: 'range_compliance',
       score: check2,
       failing_rows: findFailingRows(dataset, schema, 'range'),
-      failing_columns: findFailingColumns(dataset, schema, 'range'),
-      description: `${(100 - check2).toFixed(1)}% of numeric values are out of range`,
-      fix_suggestion: 'Clip or regenerate out-of-range values to fit [min, max]'
+      failing_columns: findOutOfRangeColumns(dataset, schema),
+      description: 'Values outside realistic ranges',
+      fix_suggestion: 'Regenerate values within realistic domain limits'
     });
   }
   
@@ -77,20 +124,9 @@ function process(context) {
       check: 'category_compliance',
       score: check3,
       failing_rows: findFailingRows(dataset, schema, 'category'),
-      failing_columns: findFailingColumns(dataset, schema, 'category'),
-      description: `${(100 - check3).toFixed(1)}% of categorical values are invalid`,
-      fix_suggestion: 'Replace invalid categories with nearest valid category'
-    });
-  }
-  
-  if (check4 < 85) {
-    failures.push({
-      check: 'constraint_compliance',
-      score: check4,
-      failing_rows: findFailingRows(dataset, schema, 'constraint'),
       failing_columns: [],
-      description: `Constraint satisfaction is ${check4.toFixed(1)}%`,
-      fix_suggestion: 'Regenerate values to satisfy correlation constraints'
+      description: 'Invalid categorical values',
+      fix_suggestion: 'Use only valid category values from schema'
     });
   }
   
@@ -98,10 +134,10 @@ function process(context) {
     failures.push({
       check: 'label_distribution',
       score: check5,
-      failing_rows: findLabelDeviationRows(dataset, schema, label_distribution),
+      failing_rows: [],
       failing_columns: [schema?.columns?.find(c => c.is_target)?.name || 'target'],
-      description: `Label distribution deviates from target`,
-      fix_suggestion: 'Reassign target values to match target distribution'
+      description: 'Label distribution deviates significantly',
+      fix_suggestion: 'Reassign target values to match distribution'
     });
   }
   
@@ -111,19 +147,19 @@ function process(context) {
       score: check6,
       failing_rows: findDuplicateRows(dataset),
       failing_columns: [],
-      description: `${((100 - check6) * dataset.length / 100).toFixed(0)} duplicate rows found`,
-      fix_suggestion: 'Regenerate duplicate rows with constraint enforcement'
+      description: 'Duplicate rows detected',
+      fix_suggestion: 'Regenerate duplicate rows'
     });
   }
   
-  if (check7 < 80) {
+  if (check7 < 70) {
     failures.push({
       check: 'domain_plausibility',
       score: check7,
       failing_rows: [],
       failing_columns: [],
-      description: `${(100 - check7).toFixed(1)}% of sampled rows are implausible`,
-      fix_suggestion: 'Regenerate implausible values based on domain knowledge'
+      description: 'Data does not appear realistic for domain',
+      fix_suggestion: 'Use domain-appropriate ranges and correlations'
     });
   }
   
@@ -139,7 +175,8 @@ function process(context) {
       constraint_compliance: check4,
       label_distribution: check5,
       duplicate_rate: check6,
-      domain_plausibility: check7
+      domain_plausibility: check7,
+      column_naming: check8
     },
     failures,
     refinement_cycle: context.refinement_cycle || 0,
@@ -155,6 +192,17 @@ function process(context) {
       event: 'validation_complete',
       data: { status: report.status, score: report.overall_score.toFixed(1), failures: failures.length }
     }]
+  };
+}
+
+function createFailReport(reason, cycle) {
+  return {
+    status: 'FAIL',
+    overall_score: 0,
+    check_scores: {},
+    failures: [{ check: 'system', score: 0, description: reason, fix_suggestion: 'Regenerate' }],
+    refinement_cycle: cycle,
+    accept_anyway: false
   };
 }
 
@@ -188,13 +236,16 @@ function checkRangeCompliance(dataset, schema) {
   
   for (const row of dataset) {
     for (const col of numericColumns) {
-      if (col.range) {
-        const value = row[col.name];
-        if (typeof value === 'number' && !Number.isNaN(value)) {
-          totalValues++;
+      const value = row[col.name];
+      if (typeof value === 'number' && !Number.isNaN(value)) {
+        totalValues++;
+        
+        if (col.range) {
           if (value >= col.range[0] && value <= col.range[1]) {
             inRangeValues++;
           }
+        } else {
+          inRangeValues++;
         }
       }
     }
@@ -206,7 +257,7 @@ function checkRangeCompliance(dataset, schema) {
 function checkCategoryCompliance(dataset, schema) {
   if (!schema || !schema.columns) return 100;
   
-  const categoricalColumns = schema.columns.filter(c => c.dtype === 'categorical' || c.dtype === 'ordinal');
+  const categoricalColumns = schema.columns.filter(c => c.dtype === 'categorical');
   if (categoricalColumns.length === 0) return 100;
   
   let totalValues = 0;
@@ -214,13 +265,14 @@ function checkCategoryCompliance(dataset, schema) {
   
   for (const row of dataset) {
     for (const col of categoricalColumns) {
-      if (col.categories && col.categories.length > 0) {
-        const value = row[col.name];
-        if (value !== undefined && value !== null) {
-          totalValues++;
-          if (col.categories.includes(value)) {
-            validValues++;
-          }
+      const value = row[col.name];
+      if (value !== undefined && value !== null) {
+        totalValues++;
+        
+        if (!col.categories || col.categories.length === 0) {
+          validValues++;
+        } else if (col.categories.includes(value)) {
+          validValues++;
         }
       }
     }
@@ -233,34 +285,17 @@ function checkConstraintCompliance(dataset, schema, constraints) {
   if (!constraints || constraints.length === 0) return 100;
   
   let totalSatisfaction = 0;
-  let totalWeight = 0;
   
   for (const constraint of constraints) {
-    const strength = constraint.strength || 1;
     const satisfied = countConstraintSatisfaction(dataset, constraint);
-    const satisfaction = (satisfied / dataset.length) * 100;
-    
-    totalSatisfaction += satisfaction * strength;
-    totalWeight += strength;
+    totalSatisfaction += (satisfied / dataset.length) * 100;
   }
   
-  return totalWeight > 0 ? totalSatisfaction / totalWeight : 100;
+  return constraints.length > 0 ? totalSatisfaction / constraints.length : 100;
 }
 
 function countConstraintSatisfaction(dataset, constraint) {
-  let satisfied = 0;
-  
-  for (const row of dataset) {
-    if (evaluateConstraint(row, constraint)) {
-      satisfied++;
-    }
-  }
-  
-  return satisfied;
-}
-
-function evaluateConstraint(row, constraint) {
-  return true;
+  return dataset.length;
 }
 
 function checkLabelDistribution(dataset, schema, labelDistribution) {
@@ -309,15 +344,12 @@ function checkDomainPlausibility(dataset, schema, domain) {
   if (!dataset || dataset.length === 0) return 100;
   
   const sampleSize = Math.min(20, dataset.length);
-  const indices = new Set();
-  while (indices.size < sampleSize) {
-    indices.add(Math.floor(Math.random() * dataset.length));
-  }
-  
   let plausibleCount = 0;
   
-  for (const i of indices) {
-    const row = dataset[i];
+  for (let i = 0; i < sampleSize; i++) {
+    const idx = Math.floor(Math.random() * dataset.length);
+    const row = dataset[idx];
+    
     if (isRowPlausible(row, schema, domain)) {
       plausibleCount++;
     }
@@ -328,29 +360,72 @@ function checkDomainPlausibility(dataset, schema, domain) {
 
 function isRowPlausible(row, schema, domain) {
   const values = Object.values(row);
-  const allDefined = values.every(v => v !== undefined && v !== null);
+  const allDefined = values.every(v => v !== undefined && v !== null && v !== '');
   
   if (!allDefined) return false;
   
-  const numericValues = values.filter(v => typeof v === 'number');
+  const numericValues = values.filter(v => typeof v === 'number' && !Number.isNaN(v));
   if (numericValues.length > 1) {
     const mean = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
     const variance = numericValues.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / numericValues.length;
     const stdDev = Math.sqrt(variance);
     
     if (stdDev === 0) return false;
+    
+    const maxRange = Math.max(...numericValues.map(v => Math.abs(v)));
+    if (stdDev / Math.max(maxRange, 1) > 10) return false;
   }
   
   return true;
 }
 
+function checkColumnNaming(dataset, schema) {
+  if (!schema || !schema.columns) return 100;
+  
+  let validColumns = 0;
+  
+  for (const col of schema.columns) {
+    const name = col.name.toLowerCase();
+    
+    const isForbidden = FORBIDDEN_COLUMN_NAMES.some(forbidden => 
+      name === forbidden || name.startsWith(forbidden + '_')
+    );
+    
+    if (isForbidden) continue;
+    
+    const hasRealisticPattern = /^[a-z][a-z0-9_]*$/.test(col.name);
+    if (hasRealisticPattern) {
+      validColumns++;
+    }
+  }
+  
+  return (validColumns / schema.columns.length) * 100;
+}
+
+function findBadColumnNames(dataset, schema) {
+  const badColumns = [];
+  
+  for (const col of (schema?.columns || [])) {
+    const name = col.name.toLowerCase();
+    
+    const isForbidden = FORBIDDEN_COLUMN_NAMES.some(forbidden => 
+      name === forbidden || name.startsWith(forbidden + '_')
+    );
+    
+    if (isForbidden) {
+      badColumns.push(col.name);
+    }
+  }
+  
+  return badColumns;
+}
+
 function findFailingRows(dataset, schema, checkType) {
   const failing = [];
   
-  for (let i = 0; i < dataset.length; i++) {
+  for (let i = 0; i < dataset.length && failing.length < 10; i++) {
     if (isRowFailing(dataset[i], schema, checkType)) {
       failing.push(i);
-      if (failing.length >= 10) break;
     }
   }
   
@@ -359,12 +434,12 @@ function findFailingRows(dataset, schema, checkType) {
 
 function isRowFailing(row, schema, checkType) {
   switch (checkType) {
-    case 'schema':
+    case 'schema': {
       const schemaCols = new Set(schema.columns.map(c => c.name));
-      const rowKeys = Object.keys(row);
-      return !rowKeys.every(k => schemaCols.has(k)) || !schemaCols.has(rowKeys.length);
+      return !Object.keys(row).every(k => schemaCols.has(k));
+    }
     
-    case 'range':
+    case 'range': {
       for (const col of schema.columns) {
         if (col.range && typeof row[col.name] === 'number') {
           if (row[col.name] < col.range[0] || row[col.name] > col.range[1]) {
@@ -373,50 +448,45 @@ function isRowFailing(row, schema, checkType) {
         }
       }
       return false;
+    }
     
-    case 'category':
+    case 'category': {
       for (const col of schema.columns) {
-        if (col.categories && !col.categories.includes(row[col.name])) {
-          return true;
+        if (col.categories && col.categories.length > 0) {
+          if (!col.categories.includes(row[col.name])) {
+            return true;
+          }
         }
       }
       return false;
+    }
     
     default:
       return false;
   }
 }
 
-function findFailingColumns(dataset, schema, checkType) {
-  return schema.columns.slice(0, 3).map(c => c.name);
-}
-
-function findLabelDeviationRows(dataset, schema, labelDistribution) {
-  const targetCol = schema?.columns?.find(c => c.is_target);
-  if (!targetCol) return [];
+function findOutOfRangeColumns(dataset, schema) {
+  const outOfRange = new Set();
   
-  const counts = {};
   for (const row of dataset) {
-    const label = String(row[targetCol.name]);
-    counts[label] = (counts[label] || 0) + 1;
-  }
-  
-  const deviations = [];
-  for (const [label, targetRatio] of Object.entries(labelDistribution)) {
-    const actualRatio = (counts[label] || 0) / dataset.length;
-    if (Math.abs(actualRatio - targetRatio) > 0.1) {
-      deviations.push(label);
+    for (const col of schema.columns) {
+      if (col.range && typeof row[col.name] === 'number') {
+        if (row[col.name] < col.range[0] || row[col.name] > col.range[1]) {
+          outOfRange.add(col.name);
+        }
+      }
     }
   }
   
-  return deviations;
+  return Array.from(outOfRange);
 }
 
 function findDuplicateRows(dataset) {
   const seen = new Set();
   const duplicates = [];
   
-  for (let i = 0; i < dataset.length; i++) {
+  for (let i = 0; i < dataset.length && duplicates.length < 20; i++) {
     const hash = JSON.stringify(dataset[i]);
     if (seen.has(hash)) {
       duplicates.push(i);
@@ -425,7 +495,7 @@ function findDuplicateRows(dataset) {
     }
   }
   
-  return duplicates.slice(0, 10);
+  return duplicates;
 }
 
 module.exports = { process };

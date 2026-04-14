@@ -3,55 +3,55 @@ function seededRandom(seed) {
   return x - Math.floor(x);
 }
 
-function normalRandom(seed) {
+function normalRandom() {
   let u = 0, v = 0;
-  while (u === 0) u = seededRandom(seed++);
-  while (v === 0) v = seededRandom(seed++);
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 }
 
 function process(context) {
   const schema = context.schema;
   const size = context.size;
-  const seed = context.seed;
+  const seed = context.seed || Date.now();
   const label_distribution = context.label_distribution || {};
-  const constraints = context.schema?.constraints || [];
+  const domain = context.domain;
   
   if (!schema || !schema.columns) {
     return {
       ...context,
       dataset: [],
-      logs: [...context.logs, { timestamp: new Date().toISOString(), event: 'generator_error', data: { error: 'No schema provided' } }]
+      logs: [...context.logs, { timestamp: new Date().toISOString(), event: 'generator_error', data: { error: 'No schema' } }]
     };
   }
   
   const dataset = [];
-  const rowHashes = new Set();
+  const idSet = new Set();
   const targetColumn = schema.columns.find(c => c.is_target);
   const targetValues = targetColumn?.categories || [0, 1];
-  const targetDistribution = calculateTargetDistribution(targetValues, label_distribution, size);
   
   for (let i = 0; i < size; i++) {
     let row = null;
     let attempts = 0;
     
     while (attempts < 10) {
-      const candidateRow = generateRow(schema.columns, constraints, i, seed, targetColumn, targetValues, targetDistribution[i]);
+      const candidateRow = generateRow(schema.columns, i, seed, targetColumn, targetValues, label_distribution, domain);
       
-      if (candidateRow) {
-        const hash = hashRow(candidateRow);
-        
-        if (!rowHashes.has(hash)) {
-          row = candidateRow;
-          rowHashes.add(hash);
-          break;
-        }
+      const idCol = schema.columns.find(c => c.is_id);
+      if (idCol && idSet.has(candidateRow[idCol.name])) {
+        attempts++;
+        continue;
       }
-      attempts++;
+      
+      row = candidateRow;
+      if (idCol) {
+        idSet.add(row[idCol.name]);
+      }
+      break;
     }
     
     if (!row) {
-      row = generateRow(schema.columns, constraints, i, seed, targetColumn, targetValues, targetDistribution[i]);
+      row = generateRow(schema.columns, i, seed, targetColumn, targetValues, label_distribution, domain);
     }
     
     dataset.push(row);
@@ -63,14 +63,16 @@ function process(context) {
     logs: [...context.logs, {
       timestamp: new Date().toISOString(),
       event: 'generation_complete',
-      data: { row_count: dataset.length, column_count: schema.columns.length }
+      data: { row_count: dataset.length, unique_ids: idSet.size }
     }]
   };
 }
 
-function generateRow(columns, constraints, index, baseSeed, targetColumn, targetValues, targetValue) {
+function generateRow(columns, index, baseSeed, targetColumn, targetValues, labelDistribution, domain) {
   const row = {};
-  const seed = baseSeed + index * 1000;
+  const seed = baseSeed + index * 1000 + Date.now() % 1000;
+  
+  const targetValue = generateTargetValue(targetColumn, index, seed, labelDistribution);
   
   for (const col of columns) {
     if (col.is_target) {
@@ -78,59 +80,96 @@ function generateRow(columns, constraints, index, baseSeed, targetColumn, target
       continue;
     }
     
-    row[col.name] = generateColumnValue(col, index, seed, row, targetValue);
-  }
-  
-  for (const constraint of constraints) {
-    if (constraint.type === 'correlation' && constraint.strength >= 0.7) {
-      applyCorrelationConstraint(row, constraint, index, seed);
+    if (col.is_id) {
+      row[col.name] = generateId(col, index, seed, domain);
+      continue;
     }
+    
+    row[col.name] = generateValue(col, index, seed, row, targetValue, targetColumn);
   }
   
   return row;
 }
 
-function generateColumnValue(column, index, seed, context, targetValue) {
+function generateId(column, index, seed, domain) {
+  const prefix = column.prefix || domain?.slice(0, 3).toUpperCase() || 'ID';
+  const num = String(index + 1).padStart(6, '0');
+  return `${prefix}${num}`;
+}
+
+function generateTargetValue(targetColumn, index, seed, labelDistribution) {
+  if (!targetColumn || !labelDistribution || Object.keys(labelDistribution).length === 0) {
+    return Math.random() > 0.5 ? 'Yes' : 'No';
+  }
+  
+  const rand = seededRandom(seed + index);
+  let cumulative = 0;
+  const entries = Object.entries(labelDistribution);
+  const total = entries.reduce((sum, [, v]) => sum + v, 0);
+  
+  for (const [value, weight] of entries) {
+    cumulative += weight / total;
+    if (rand <= cumulative) {
+      return value;
+    }
+  }
+  
+  return entries[entries.length - 1][0];
+}
+
+function generateValue(column, index, seed, context, targetValue, targetColumn) {
   const rand = () => seededRandom(seed + index * 100 + hashString(column.name));
-  const normRand = () => normalRandom(seed + index * 100 + hashString(column.name));
+  const normRand = () => {
+    let u = 0, v = 0;
+    while (u === 0) u = rand();
+    while (v === 0) v = rand();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  };
   
   switch (column.dtype) {
     case 'int': {
       const [min, max] = column.range || [0, 100];
-      return Math.round(min + rand() * (max - min));
+      const dist = column.distribution || 'normal';
+      
+      if (dist === 'skewed') {
+        const r = rand();
+        return Math.round(min + Math.pow(r, 0.5) * (max - min));
+      }
+      
+      const mean = (min + max) / 2;
+      const std = (max - min) / 6;
+      return Math.round(Math.max(min, Math.min(max, mean + normRand() * std)));
     }
     
     case 'float': {
       const [min, max] = column.range || [0, 100];
-      const mean = (min + max) / 2;
-      const std = (max - min) / 6;
-      let value = mean + normRand() * std;
-      value = Math.max(min, Math.min(max, value));
-      return parseFloat(value.toFixed(2));
+      const dist = column.distribution || 'normal';
+      
+      let value;
+      if (dist === 'skewed') {
+        const r = rand();
+        value = min + Math.pow(r, 0.5) * (max - min);
+      } else {
+        const mean = (min + max) / 2;
+        const std = (max - min) / 6;
+        value = mean + normRand() * std;
+      }
+      
+      return parseFloat(Math.max(min, Math.min(max, value)).toFixed(2));
     }
     
     case 'categorical': {
       const values = column.categories || ['A', 'B', 'C'];
-      if (column.categories && column.categories.length > 0) {
-        return values[Math.floor(rand() * values.length)];
-      }
       return values[Math.floor(rand() * values.length)];
     }
     
-    case 'ordinal': {
-      const values = column.categories || ['Low', 'Medium', 'High'];
-      return values[Math.floor(rand() * values.length)];
-    }
-    
-    case 'boolean': {
+    case 'boolean':
       return rand() > 0.5;
-    }
     
     case 'datetime': {
-      const start = new Date('2020-01-01').getTime();
+      const start = new Date('2022-01-01').getTime();
       const end = new Date('2024-12-31').getTime();
-      const date = new Date(start + rand() * (end - start));
-      return date.toISOString();
+      return new Date(start + rand() * (end - start)).toISOString();
     }
     
     default: {
@@ -138,65 +177,6 @@ function generateColumnValue(column, index, seed, context, targetValue) {
       return parseFloat((min + rand() * (max - min)).toFixed(2));
     }
   }
-}
-
-function calculateTargetDistribution(targetValues, labelDistribution, size) {
-  const distribution = [];
-  
-  let weights = {};
-  if (typeof labelDistribution === 'object' && !Array.isArray(labelDistribution)) {
-    weights = labelDistribution;
-  } else if (Array.isArray(labelDistribution)) {
-    for (let i = 0; i < labelDistribution.length; i++) {
-      weights[labelDistribution[i]] = 1 / labelDistribution.length;
-    }
-  } else {
-    if (targetValues.length === 2) {
-      weights = { [targetValues[0]]: 0.65, [targetValues[1]]: 0.35 };
-    } else {
-      const equal = 1 / targetValues.length;
-      for (const v of targetValues) {
-        weights[v] = equal;
-      }
-    }
-  }
-  
-  const weightEntries = Object.entries(weights);
-  const totalWeight = weightEntries.reduce((sum, [, w]) => sum + w, 0);
-  
-  for (let i = 0; i < size; i++) {
-    const rand = seededRandom(i * 1000 + Date.now());
-    let cumulative = 0;
-    
-    for (const [value, weight] of weightEntries) {
-      cumulative += weight / totalWeight;
-      if (rand <= cumulative) {
-        distribution.push(value);
-        break;
-      }
-    }
-    
-    if (distribution.length <= i) {
-      distribution.push(weightEntries[0][0]);
-    }
-  }
-  
-  return distribution;
-}
-
-function applyCorrelationConstraint(row, constraint, index, seed) {
-  return;
-}
-
-function hashRow(row) {
-  const str = JSON.stringify(row);
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash;
 }
 
 function hashString(str) {

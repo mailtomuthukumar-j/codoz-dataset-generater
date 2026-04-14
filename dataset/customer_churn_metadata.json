@@ -1,22 +1,22 @@
 {
   "dataset_name": "customer_churn_dataset",
   "generated_by": "CODOZ",
-  "generation_timestamp": "2026-04-14T16:46:30.842Z",
+  "generation_timestamp": "2026-04-14T17:15:33.408Z",
   "topic": "customer churn",
   "domain": "retail",
   "subdomain": "customer churn",
   "task_type": "classification",
-  "target_column": "churn",
-  "total_rows": 20,
-  "total_columns": 9,
+  "target_column": "churn_risk",
+  "total_rows": 3,
+  "total_columns": 13,
   "chunk_count": 1,
-  "format": "csv",
-  "final_quality_score": 99.85,
+  "format": "json",
+  "final_quality_score": 99.95,
   "refinement_cycles_used": 0,
   "schema_source": "llm_knowledge",
   "label_distribution": {
-    "No": 12,
-    "Yes": 8
+    "No": 2,
+    "Yes": 1
   },
   "schema": [
     {
@@ -28,26 +28,99 @@
     },
     {
       "name": "age",
-      "dtype": "int",
+      "dtype": "float",
       "range": [
         18,
-        80
+        90
       ],
-      "categories": [
-        "Category A",
-        "Category B",
-        "Category C"
-      ],
+      "categories": null,
       "is_target": false
     },
     {
       "name": "gender",
       "dtype": "categorical",
-      "range": null,
+      "range": [
+        0,
+        100
+      ],
       "categories": [
         "Male",
         "Female"
       ],
+      "is_target": false
+    },
+    {
+      "name": "city_tier",
+      "dtype": "float",
+      "range": [
+        0,
+        100
+      ],
+      "categories": [
+        "Tier 1",
+        "Tier 2",
+        "Tier 3"
+      ],
+      "is_target": false
+    },
+    {
+      "name": "price",
+      "dtype": "float",
+      "range": [
+        1,
+        5000
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "promotion_used",
+      "dtype": "float",
+      "range": [
+        0,
+        100
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "average_order_value",
+      "dtype": "float",
+      "range": [
+        18,
+        90
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "item_count",
+      "dtype": "int",
+      "range": [
+        0,
+        10
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "click_through",
+      "dtype": "float",
+      "range": [
+        0,
+        100
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "returns_count",
+      "dtype": "int",
+      "range": [
+        0,
+        10
+      ],
+      "categories": null,
       "is_target": false
     },
     {
@@ -71,7 +144,7 @@
       "is_target": false
     },
     {
-      "name": "churn",
+      "name": "churn_risk",
       "dtype": "categorical",
       "range": null,
       "categories": [
@@ -79,37 +152,6 @@
         "Yes"
       ],
       "is_target": true
-    },
-    {
-      "name": "index",
-      "dtype": "int",
-      "range": [
-        1,
-        10000
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "value",
-      "dtype": "float",
-      "range": [
-        0,
-        100
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "status",
-      "dtype": "categorical",
-      "range": null,
-      "categories": [
-        "Active",
-        "Inactive",
-        "Pending"
-      ],
-      "is_target": false
     }
   ],
   "applied_constraints": 0,

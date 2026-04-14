@@ -1,21 +1,21 @@
 {
   "dataset_name": "diabetes_dataset",
   "generated_by": "CODOZ",
-  "generation_timestamp": "2026-04-14T16:46:18.599Z",
+  "generation_timestamp": "2026-04-14T17:14:19.408Z",
   "topic": "diabetes",
   "domain": "medical",
   "subdomain": "diabetes",
   "task_type": "classification",
-  "target_column": "target",
-  "total_rows": 10,
-  "total_columns": 8,
+  "target_column": "disease_stage",
+  "total_rows": 5,
+  "total_columns": 11,
   "chunk_count": 1,
   "format": "json",
-  "final_quality_score": 94.55,
+  "final_quality_score": 97.35,
   "refinement_cycles_used": 0,
   "schema_source": "llm_knowledge",
   "label_distribution": {
-    "0": 8,
+    "0": 3,
     "1": 2
   },
   "schema": [
@@ -28,22 +28,21 @@
     },
     {
       "name": "age",
-      "dtype": "int",
+      "dtype": "float",
       "range": [
         18,
-        80
+        90
       ],
-      "categories": [
-        "Category A",
-        "Category B",
-        "Category C"
-      ],
+      "categories": null,
       "is_target": false
     },
     {
       "name": "gender",
       "dtype": "categorical",
-      "range": null,
+      "range": [
+        0,
+        100
+      ],
       "categories": [
         "Male",
         "Female"
@@ -51,21 +50,57 @@
       "is_target": false
     },
     {
-      "name": "glucose",
+      "name": "race",
+      "dtype": "categorical",
+      "range": [
+        0,
+        100
+      ],
+      "categories": [
+        "White",
+        "Black",
+        "Asian",
+        "Hispanic",
+        "Other"
+      ],
+      "is_target": false
+    },
+    {
+      "name": "ldl",
       "dtype": "float",
       "range": [
         50,
-        300
+        250
       ],
       "categories": null,
       "is_target": false
     },
     {
-      "name": "blood_pressure",
+      "name": "diastolic_bp",
       "dtype": "float",
       "range": [
-        900,
-        1100
+        50,
+        130
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "wbc",
+      "dtype": "float",
+      "range": [
+        3,
+        15
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "t4",
+      "dtype": "float",
+      "range": [
+        0,
+        100
       ],
       "categories": null,
       "is_target": false
@@ -85,13 +120,13 @@
       "dtype": "float",
       "range": [
         40,
-        200
+        180
       ],
       "categories": null,
       "is_target": false
     },
     {
-      "name": "target",
+      "name": "disease_stage",
       "dtype": "categorical",
       "range": null,
       "categories": [
