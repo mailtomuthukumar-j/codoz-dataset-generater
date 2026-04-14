@@ -15,7 +15,7 @@ program
 program
   .command('dataset')
   .description('Generate a dataset (interactive mode)')
-  .argument('[topic]', 'Dataset topic (optional for interactive mode)')
+  .argument('[topic]', 'Dataset topic (optional)')
   .option('-s, --size <number>', 'Dataset size')
   .option('-f, --format <type>', 'Output format')
   .option('-y, --yes', 'Skip confirmation')
@@ -34,25 +34,23 @@ program
     await quickGenerate(topicStr, options);
   });
 
-async function runGenerator(initialTopic, options) {
+async function runGenerator(topicArg, options) {
   console.log('\n📊 CODOZ Dataset Generator\n');
   console.log('━'.repeat(40) + '\n');
 
-  const topic = initialTopic;
-  const size = parseInt(options.size) || 500;
-  const format = options.format || 'json';
-  const skipPrompts = topic && options.size && options.format;
+  let finalTopic = topicArg;
+  let finalSize = parseInt(options.size) || 500;
+  let finalFormat = options.format || 'json';
+  let answers = {};
 
-  if (skipPrompts) {
-    console.log('📋 Summary:');
-    console.log(`   Topic:  ${topic}`);
-    console.log(`   Size:   ${size}`);
-    console.log(`   Format: ${format}`);
-    console.log('━'.repeat(40) + '\n');
-  } else {
+  const needsTopic = !finalTopic;
+  const needsSize = !options.size;
+  const needsFormat = !options.format;
+
+  if (needsTopic || needsSize || needsFormat) {
     const questions = [];
 
-    if (!topic) {
+    if (needsTopic) {
       questions.push({
         type: 'text',
         name: 'topic',
@@ -61,18 +59,16 @@ async function runGenerator(initialTopic, options) {
       });
     }
 
-    if (!options.size) {
+    if (needsSize) {
       questions.push({
-        type: 'number',
+        type: 'text',
         name: 'size',
-        message: 'Enter dataset size',
-        initial: 500,
-        min: 1,
-        max: 100000
+        message: 'Enter dataset size:',
+        initial: '500'
       });
     }
 
-    if (!options.format) {
+    if (needsFormat) {
       questions.push({
         type: 'select',
         name: 'format',
@@ -95,7 +91,6 @@ async function runGenerator(initialTopic, options) {
       });
     }
 
-    let answers;
     try {
       answers = await prompts(questions, {
         onCancel: () => {
@@ -108,39 +103,55 @@ async function runGenerator(initialTopic, options) {
       process.exit(0);
     }
 
-    if (!options.yes && !answers.confirm) {
+    if (!options.yes && answers.confirm === false) {
       console.log('\n\n❌ Generation cancelled.\n');
       return;
     }
 
-    answers.topic = topic || answers.topic;
-    answers.size = answers.size || parseInt(options.size) || 500;
-    answers.format = answers.format || options.format || 'json';
+    finalTopic = finalTopic || answers.topic || 'dataset';
+    finalSize = needsSize ? parseInt(answers.size) || 500 : finalSize;
+    finalFormat = finalFormat || answers.format || 'json';
   }
 
-  const finalTopic = topic || answers?.topic;
-  const finalSize = options.size ? parseInt(options.size) : (answers?.size || 500);
-  const finalFormat = options.format || (answers?.format || 'json');
+  console.log('📋 Summary:');
+  console.log(`   Topic:  ${finalTopic}`);
+  console.log(`   Size:   ${finalSize}`);
+  console.log(`   Format: ${finalFormat}`);
+  console.log('━'.repeat(40) + '\n');
 
   console.log('🔄 Generating dataset...\n');
 
   const domain = detectDomain(finalTopic);
   const subdomain = formatSubdomain(finalTopic);
-  const data = generateData(finalTopic, { format: finalFormat, size: finalSize });
-  const metadata = generateMetadata(finalTopic, { format: finalFormat, size: finalSize });
+
+  let attempts = 0;
+  const maxAttempts = 5;
+  let data = '';
+  let metadata = {};
+
+  while (attempts < maxAttempts) {
+    data = generateData(finalTopic, { format: finalFormat, size: finalSize, domain, samples: getSamples(domain) });
+    metadata = generateMetadata(finalTopic, { format: finalFormat, size: finalSize, domain, subdomain, target: getTarget(domain) });
+
+    const actualRows = countRows(data, finalFormat);
+    if (actualRows === finalSize) {
+      break;
+    }
+    attempts++;
+  }
 
   const outputDir = 'codoz-dataset';
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  fs.writeFileSync(path.join(outputDir, `dataset.${format}`), data);
+  fs.writeFileSync(path.join(outputDir, `dataset.${finalFormat}`), data);
   fs.writeFileSync(path.join(outputDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
 
   console.log('✅ Generation completed!\n');
   console.log('━'.repeat(40));
   console.log('📁 FILES GENERATED:\n');
-  console.log(`   Dataset:  ${outputDir}/dataset.${format}`);
+  console.log(`   Dataset:  ${outputDir}/dataset.${finalFormat}`);
   console.log(`   Metadata: ${outputDir}/metadata.json`);
   console.log('━'.repeat(40) + '\n');
 }
@@ -153,8 +164,20 @@ async function quickGenerate(topic, options) {
 
   const domain = detectDomain(topic);
   const subdomain = formatSubdomain(topic);
-  const data = generateData(topic, { format, size });
-  const metadata = generateMetadata(topic, { format, size });
+  const samples = getSamples(domain);
+  const target = getTarget(domain);
+
+  let attempts = 0;
+  let data = '';
+
+  while (attempts < 5) {
+    data = generateData(topic, { format, size, domain, samples });
+    const actualRows = countRows(data, format);
+    if (actualRows === size) break;
+    attempts++;
+  }
+
+  const metadata = generateMetadata(topic, { format, size, domain, subdomain, target });
 
   const outputDir = 'codoz-dataset';
   if (!fs.existsSync(outputDir)) {
@@ -166,6 +189,21 @@ async function quickGenerate(topic, options) {
 
   console.log('✅ Done!\n');
   console.log(`   Output: ${outputDir}/dataset.${format}\n`);
+}
+
+function countRows(data, format) {
+  if (format === 'json') {
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed.length : 0;
+  }
+  if (format === 'csv') {
+    const lines = data.split('\n').filter(line => line.trim().length > 0);
+    return Math.max(0, lines.length - 1);
+  }
+  if (format === 'jsonl') {
+    return data.split('\n').filter(line => line.trim().length > 0).length;
+  }
+  return 0;
 }
 
 function detectDomain(topic) {
@@ -222,8 +260,8 @@ function getTarget(domain) {
 }
 
 function generateData(topic, options) {
-  const domain = detectDomain(topic);
-  const samples = getSamples(domain);
+  const domain = options.domain || detectDomain(topic);
+  const samples = options.samples || getSamples(domain);
   const size = options.size || 3;
   const rows = [];
 
@@ -252,11 +290,11 @@ function generateData(topic, options) {
 }
 
 function generateMetadata(topic, options) {
-  const domain = detectDomain(topic);
-  const subdomain = formatSubdomain(topic);
+  const domain = options.domain || detectDomain(topic);
+  const subdomain = options.subdomain || formatSubdomain(topic);
   const size = options.size || 3;
-  const samples = getSamples(domain);
-  const target = getTarget(domain);
+  const samples = options.samples || getSamples(domain);
+  const target = options.target || getTarget(domain);
 
   const labelDist = {};
   for (let i = 0; i < size; i++) {
