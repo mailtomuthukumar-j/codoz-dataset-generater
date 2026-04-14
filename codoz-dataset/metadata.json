@@ -1,17 +1,17 @@
 {
-  "dataset_name": "student_performance_dataset",
+  "dataset_name": "diabetes_dataset",
   "generated_by": "CODOZ",
   "seed": 42,
-  "domain": "education",
-  "subdomain": "student_performance",
-  "task_type": "regression",
-  "target_column": "gpa",
+  "domain": "medical",
+  "subdomain": "diabetes",
+  "task_type": "classification",
+  "target_column": "outcome",
   "total_rows": 3,
   "total_chunks": 1,
-  "format": "jsonl",
+  "format": "json",
   "label_distribution": {
-    "5.8": 1,
-    "7.6": 1,
-    "4.9": 1
+    "diabetic": 1,
+    "healthy": 1,
+    "pre-diabetic": 1
   }
 }
