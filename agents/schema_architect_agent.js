@@ -166,7 +166,9 @@ function process(context) {
     columns,
     constraints,
     label_distribution,
-    schema_source: 'strict_dynamic_generation'
+    schema_source: 'strict_dynamic_generation',
+    correlation_pairs: CORRELATION_PAIRS,
+    correlated_columns: CORRELATED_COLUMNS[domain] || []
   };
   
   return {
@@ -225,17 +227,34 @@ function generateDemographics(domain) {
   return cols;
 }
 
+const CORRELATED_COLUMNS = {
+  medical: ['glucose', 'hba1c', 'bmi', 'blood_pressure_systolic', 'cholesterol', 'heart_rate'],
+  financial: ['credit_score', 'income', 'debt_ratio'],
+  sports: ['kills', 'deaths', 'win_rate', 'kills_deaths_ratio'],
+  environmental: ['pm25', 'aqi', 'temperature', 'humidity']
+};
+
+const CORRELATION_PAIRS = [
+  { source: 'glucose', target: 'hba1c', expected_direction: 'positive' },
+  { source: 'bmi', target: 'blood_pressure_systolic', expected_direction: 'positive' },
+  { source: 'credit_score', target: 'income', expected_direction: 'positive' },
+  { source: 'kills', target: 'kills_deaths_ratio', expected_direction: 'positive' },
+  { source: 'deaths', target: 'win_rate', expected_direction: 'negative' },
+  { source: 'pm25', target: 'aqi', expected_direction: 'positive' }
+];
+
 function generateMeasurements(domain, targetColName) {
   const cols = [];
+  const correlatedNames = CORRELATED_COLUMNS[domain] || [];
   
   const domainSpecific = {
     medical: [
-      { name: 'glucose', dtype: 'float', range: [50.0, 500.0] },
-      { name: 'hba1c', dtype: 'float', range: [4.0, 16.0] },
-      { name: 'bmi', dtype: 'float', range: [15.0, 55.0] },
-      { name: 'blood_pressure_systolic', dtype: 'int', range: [60, 180] },
+      { name: 'glucose', dtype: 'float', range: [50.0, 500.0], correlated: true },
+      { name: 'hba1c', dtype: 'float', range: [4.0, 16.0], correlated: true },
+      { name: 'bmi', dtype: 'float', range: [15.0, 55.0], correlated: true },
+      { name: 'blood_pressure_systolic', dtype: 'int', range: [60, 180], correlated: true },
       { name: 'blood_pressure_diastolic', dtype: 'int', range: [40, 120] },
-      { name: 'cholesterol', dtype: 'float', range: [100.0, 400.0] },
+      { name: 'cholesterol', dtype: 'float', range: [100.0, 400.0], correlated: true },
       { name: 'heart_rate', dtype: 'int', range: [40, 140] }
     ],
     financial: [
