@@ -1,8 +1,9 @@
 {
   "name": "codoz",
   "version": "1.0.0",
-  "description": "CODOZ - Production-grade AI Dataset Engine for ML-ready synthetic data generation",
+  "description": "CODOZ - AI Dataset Generator for ML-ready synthetic data",
   "main": "cli.js",
+  "type": "commonjs",
   "bin": {
     "codoz": "./cli.js"
   },
@@ -16,10 +17,15 @@
     "synthetic-data",
     "machine-learning",
     "data-generation",
-    "cli"
+    "cli",
+    "ai"
   ],
   "author": "CODOZ",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mailtomuthukumar-j/codoz-dataset-generater"
+  },
   "dependencies": {
     "commander": "^11.1.0"
   },

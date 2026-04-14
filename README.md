@@ -1,80 +1,100 @@
-# CODOZ - AI Dataset Engine
+# CODOZ - AI Dataset Generator
 
-Production-grade synthetic dataset generator for machine learning applications.
+**Production-grade AI Dataset Engine for ML-ready synthetic data generation.**
+
+```
+npx codoz dataset generate diabetes dataset --size 10 --format json
+```
 
 ## Features
 
-- **Domain-Aware Generation**: Automatically detects domain (medical, financial, education, etc.)
-- **Realistic Correlations**: Enforces real-world feature relationships
-- **Class Balance Control**: Supports custom label distributions
-- **Multiple Output Formats**: JSON, CSV, JSONL (parquet not supported)
-- **Metadata Output**: Every dataset includes schema.json
-- **Chunked Output**: Large datasets automatically split into manageable chunks
+- Generate synthetic ML-ready datasets
+- Multiple formats: JSON, CSV, JSONL
+- Auto domain detection (medical, financial, education, retail, etc.)
+- CLI and API modes
 
-## Installation
+## Quick Start
 
+### CLI Mode
 ```bash
-npm install
+npx codoz dataset generate <topic> [options]
+
+Options:
+  -s, --size <number>     Number of rows (default: 500)
+  -f, --format <type>     Output format: json, csv, jsonl (default: json)
+      --seed <number>     Random seed for reproducibility (default: 42)
 ```
 
-## Usage
+### Examples
 
 ```bash
-# Generate a diabetes dataset (500 rows, JSON format)
-npx codoz generate diabetes dataset
+# Generate diabetes dataset (JSON)
+npx codoz dataset generate diabetes dataset --size 10
 
-# Custom size and format
-npx codoz generate loan default prediction --size 1000 --format csv
+# Generate loan default dataset (CSV)
+npx codoz dataset generate loan default prediction --format csv --size 100
 
-# With seed for reproducibility
-npx codoz generate student performance --size 100 --seed 12345
-
-# Balanced classes
-npx codoz generate fraud detection --balanced
+# Generate student performance dataset (JSONL)
+npx codoz dataset generate student performance --format jsonl --size 50
 ```
 
-## Command Options
+### API Mode
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--size <n>` | Number of rows | 500 |
-| `--format <type>` | Output format (json/csv/jsonl) | json |
-| `--seed <n>` | Random seed for reproducibility | 42 |
-| `--balanced` | Equal class distribution | false |
+```bash
+node api.js '{"topic":"diabetes dataset","size":3,"format":"json"}'
+```
+
+Returns:
+```json
+{
+  "success": true,
+  "data": {
+    "dataset_name": "diabetes_dataset",
+    "format": "json",
+    "records": [...],
+    "row_count": 3
+  },
+  "meta": {
+    "domain": "medical",
+    "subdomain": "diabetes",
+    "task_type": "classification",
+    "target_column": "outcome",
+    "seed": 42,
+    "label_distribution": {"diabetic": 1, "healthy": 1}
+  },
+  "errors": null
+}
+```
 
 ## Supported Domains
 
-- **Medical**: Diabetes, heart disease, general diagnostics
-- **Financial**: Loan default, fraud detection, credit scoring
-- **Education**: Student performance, exam scores
-- **Environmental**: Pollution, climate data
-- **Retail**: Customer behavior, sales data
-- **Other**: Custom domains with auto-detection
+| Domain | Examples |
+|--------|----------|
+| Medical | diabetes, heart disease, patient records |
+| Financial | loan default, fraud detection, credit scoring |
+| Education | student performance, exam scores |
+| Retail | customer churn, sales data |
+| Environmental | air quality, pollution metrics |
+| Social | influencer metrics, engagement data |
 
-## Output Structure
+## Output
 
+Generates files in `codoz-dataset/`:
 ```
-dataset/
-├── raw/                    # Chunked pre-validation output
-├── processed/              # Cleaned, validated output
-└── metadata/               # schema.json, README per dataset
+codoz-dataset/
+├── dataset.json    (or .csv, .jsonl)
+└── metadata.json
 ```
 
-## Dataset Metadata
+## Development
 
-Every generated dataset includes:
-- Dataset name and generation timestamp
-- Domain and subdomain
-- Task type and target column
-- Total rows and chunks
-- Label distribution
-- Full schema definition
-
-## System Requirements
-
-- Node.js >= 16.0.0
-- Python 3.8+ (for backend processing)
-- OpenAI API key (in .env file)
+```bash
+git clone https://github.com/mailtomuthukumar-j/codoz-dataset-generater.git
+cd codoz-dataset-generater
+npm install
+npm link
+codoz dataset generate test dataset
+```
 
 ## License
 
