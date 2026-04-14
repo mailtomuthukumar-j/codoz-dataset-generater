@@ -1,24 +1,28 @@
 {
   "name": "codoz",
-  "version": "1.0.0",
-  "description": "CODOZ - AI Dataset Generator for ML-ready synthetic data",
-  "main": "cli.js",
+  "version": "2.0.0",
+  "description": "CODOZ - Real Data Engine. Fetch real-world datasets from Kaggle, UCI, HuggingFace",
+  "main": "src/index.js",
   "type": "commonjs",
   "bin": {
-    "codoz": "./cli.js"
+    "codoz": "./src/cli.js"
   },
   "scripts": {
-    "start": "node cli.js",
-    "generate": "node cli.js dataset generate",
-    "test": "node cli.js dataset generate test dataset --size 3"
+    "start": "node src/cli.js",
+    "generate": "node src/cli.js",
+    "topics": "node src/cli.js topics",
+    "sources": "node src/cli.js sources",
+    "test": "node src/cli.js heart_disease --size 10"
   },
   "keywords": [
     "dataset",
-    "synthetic-data",
+    "real-data",
     "machine-learning",
-    "data-generation",
-    "cli",
-    "ai"
+    "data-fetching",
+    "kaggle",
+    "uci",
+    "huggingface",
+    "cli"
   ],
   "author": "CODOZ",
   "license": "MIT",
@@ -27,8 +31,7 @@
     "url": "https://github.com/mailtomuthukumar-j/codoz-dataset-generater"
   },
   "dependencies": {
-    "commander": "^11.1.0",
-    "prompts": "^2.4.2"
+    "axios": "^1.15.0"
   },
   "engines": {
     "node": ">=16.0.0"

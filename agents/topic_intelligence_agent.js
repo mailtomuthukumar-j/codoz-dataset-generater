@@ -12,6 +12,7 @@ const { matchTopic, KNOWLEDGE_BASE, getAllTopics } = require('../core/knowledge_
 
 function process(context) {
   const topic = context.topic;
+  const silent = context.silent;
   
   if (!topic || topic.trim().length === 0) {
     return {
@@ -21,39 +22,42 @@ function process(context) {
     };
   }
   
-  console.log('━'.repeat(60));
-  console.log('PHASE 1: TOPIC INTELLIGENCE');
-  console.log('━'.repeat(60));
-  console.log(`\nCapturing topic: "${topic}"`);
+  if (!silent) {
+    console.log('━'.repeat(60));
+    console.log('PHASE 1: TOPIC INTELLIGENCE');
+    console.log('━'.repeat(60));
+    console.log(`\nCapturing topic: "${topic}"`);
+  }
   
-  // Step 1: Deep topic analysis
   const analysis = analyzeTopic(topic);
-  console.log(`\nAnalyzing topic components...`);
-  console.log(`  - Primary entity: ${analysis.entity}`);
-  console.log(`  - Context: ${analysis.context}`);
-  console.log(`  - Intent: ${analysis.intent}`);
   
-  // Step 2: Match to knowledge base
+  if (!silent) {
+    console.log(`\nAnalyzing topic components...`);
+    console.log(`  - Primary entity: ${analysis.entity}`);
+    console.log(`  - Context: ${analysis.context}`);
+    console.log(`  - Intent: ${analysis.intent}`);
+  }
+  
   const match = matchTopicToKnowledgeBase(topic);
   
   if (match) {
-    console.log(`\nKnowledge base match found!`);
-    console.log(`  - Matched topic: ${match.config.name}`);
-    console.log(`  - Confidence: ${(match.confidence * 100).toFixed(0)}}%`);
-    console.log(`  - Entity: ${match.config.entity}`);
-    console.log(`  - Description: ${match.config.description}`);
+    if (!silent) {
+      console.log(`\nKnowledge base match found!`);
+      console.log(`  - Matched topic: ${match.config.name}`);
+      console.log(`  - Confidence: ${(match.confidence * 100).toFixed(0)}}%`);
+    }
     
-    // Step 3: Build comprehensive understanding
     const understanding = buildDeepUnderstanding(topic, analysis, match);
     
-    console.log(`\nBuilding understanding...`);
-    console.log(`  - Target variable: ${understanding.target.name}`);
-    console.log(`  - Target type: ${understanding.target.type}`);
-    console.log(`  - Target values: ${understanding.target.values.join(', ')}`);
-    console.log(`  - Feature categories: ${Object.keys(understanding.features).length}`);
-    console.log(`  - Causal rules: ${understanding.causalRules.length}`);
+    if (!silent) {
+      console.log(`\nBuilding understanding...`);
+      console.log(`  - Target variable: ${understanding.target.name}`);
+      console.log(`  - Target type: ${understanding.target.type}`);
+      console.log(`  - Target values: ${understanding.target.values.join(', ')}`);
+      console.log(`  - Feature categories: ${Object.keys(understanding.features).length}`);
+      console.log(`  - Causal rules: ${understanding.causalRules.length}`);
+    }
     
-    // Step 4: Generate information requirements
     const infoGathering = prepareInformationGathering(understanding);
     
     return {
@@ -75,8 +79,7 @@ function process(context) {
       })]
     };
   } else {
-    // Handle unknown topic - generate reasonable schema
-    console.log(`\nNo exact match found. Generating custom schema...`);
+    if (!silent) console.log(`\nNo exact match found. Generating custom schema...`);
     const customUnderstanding = generateCustomSchema(topic, analysis);
     
     return {
@@ -279,13 +282,14 @@ function buildDeepUnderstanding(topic, analysis, match) {
   }
   
   // Build causal rules
-  const causalRules = config.causal_rules.map(rule => ({
+  const causalRules = (config.causal_rules || []).map(rule => ({
     ...rule,
     type: rule.target_value ? 'target_rule' : 'correlation'
   }));
   
   return {
     topic: config.name,
+    topicKey: match.topic,
     description: config.description,
     entity: config.entity,
     context: config.context,
@@ -329,6 +333,7 @@ function generateCustomSchema(topic, analysis) {
   
   return {
     topic: topic,
+    topicKey: topicLower.replace(/\s+/g, '_'),
     description: `Custom dataset for: ${topic}`,
     entity: analysis.entity,
     context: analysis.context,

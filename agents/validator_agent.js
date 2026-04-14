@@ -6,10 +6,14 @@
  * 2. Data quality check
  * 3. Constraint satisfaction
  * 4. Domain consistency
+ * 5. Clinical logic validation (REALISM CHECK)
  */
 
+const { evaluateClinicalRules, hasClinicalRules, CLINICAL_RULES } = require('../core/clinical_rules');
+
 function process(context) {
-  const { dataset, schema, topicAnalysis, datasetStats } = context;
+  const { dataset, schema, topicAnalysis, datasetStats, topic } = context;
+  const silent = context.silent;
   
   if (!dataset || dataset.length === 0) {
     return {
@@ -23,35 +27,34 @@ function process(context) {
     };
   }
   
-  console.log('━'.repeat(60));
-  console.log('PHASE 4: ANALYSIS & VALIDATION');
-  console.log('━'.repeat(60));
+  if (!silent) {
+    console.log('━'.repeat(60));
+    console.log('PHASE 4: ANALYSIS & VALIDATION');
+    console.log('━'.repeat(60));
+    console.log(`\nAnalyzing dataset...`);
+    console.log(`  - Rows: ${dataset.length}`);
+    console.log(`  - Columns: ${Object.keys(dataset[0]).length}`);
+  }
   
-  console.log(`\nAnalyzing dataset...`);
-  console.log(`  - Rows: ${dataset.length}`);
-  console.log(`  - Columns: ${Object.keys(dataset[0]).length}`);
-  
-  // Run validation tests
   const tests = runValidationTests(dataset, schema, topicAnalysis);
-  
-  // Calculate overall score
   const score = calculateValidationScore(tests);
   const status = score >= 80 ? 'PASS' : 'FAIL';
   
-  console.log(`\nValidation Results:`);
-  tests.forEach(test => {
-    const statusIcon = test.passed ? '✓' : '✗';
-    const statusText = test.passed ? 'PASS' : 'FAIL';
-    console.log(`  ${statusIcon} ${test.name}: ${statusText} (${test.score}%)`);
-    if (!test.passed && test.issues.length > 0) {
-      test.issues.slice(0, 3).forEach(issue => {
-        console.log(`      - ${issue}`);
-      });
-    }
-  });
-  
-  console.log(`\nOverall Score: ${score.toFixed(1)}%`);
-  console.log(`Status: ${status}`);
+  if (!silent) {
+    console.log(`\nValidation Results:`);
+    tests.forEach(test => {
+      const statusIcon = test.passed ? '✓' : '✗';
+      const statusText = test.passed ? 'PASS' : 'FAIL';
+      console.log(`  ${statusIcon} ${test.name}: ${statusText} (${test.score}%)`);
+      if (!test.passed && test.issues.length > 0) {
+        test.issues.slice(0, 3).forEach(issue => {
+          console.log(`      - ${issue}`);
+        });
+      }
+    });
+    console.log(`\nOverall Score: ${score.toFixed(1)}%`);
+    console.log(`Status: ${status}`);
+  }
   
   const result = {
     status,
@@ -429,13 +432,16 @@ function testDomainConsistency(dataset, schema, topicAnalysis) {
 function testRealism(dataset, schema, topicAnalysis) {
   const test = {
     name: 'Realism',
-    description: 'Dataset looks realistic for the domain',
+    description: 'Dataset matches real-world clinical patterns',
     passed: true,
     score: 100,
     issues: []
   };
   
-  // Check for all-same values (indicates random failure)
+  // Get topic key from topicAnalysis
+  const topicKey = topicAnalysis?.topicKey || null;
+  
+  // Check 1: All-same values (indicates random failure)
   schema.columns.forEach(col => {
     if (col.isId || col.isTarget) return;
     
@@ -445,11 +451,11 @@ function testRealism(dataset, schema, topicAnalysis) {
     if (uniqueValues.size === 1 && values.length > 10) {
       test.passed = false;
       test.score -= 15;
-      test.issues.push(`${col.name}: All values identical (${values[0]})`);
+      test.issues.push(`${col.name}: All values identical (${values[0]}) - indicates random failure`);
     }
   });
   
-  // Check for reasonable variance in numeric columns
+  // Check 2: Reasonable variance in numeric columns
   const numericCols = schema.columns.filter(c => c.dataType === 'int' || c.dataType === 'float');
   numericCols.forEach(col => {
     if (col.isId || col.isTarget || !col.range) return;
@@ -462,16 +468,128 @@ function testRealism(dataset, schema, topicAnalysis) {
     const stdDev = Math.sqrt(variance);
     const range = col.range[1] - col.range[0];
     
-    // Very low variance compared to range
     if (stdDev < range * 0.01 && range > 50) {
       test.score -= 10;
       test.issues.push(`${col.name}: Very low variance (std=${stdDev.toFixed(2)})`);
     }
   });
   
+  // Check 3: CLINICAL LOGIC VALIDATION (CRITICAL)
+  if (topicKey && hasClinicalRules(topicKey)) {
+    const clinicalResult = validateClinicalLogic(dataset, schema, topicKey);
+    
+    if (clinicalResult.violationRate > 0.3) {
+      test.passed = false;
+      test.score -= Math.min(40, clinicalResult.violationRate * 50);
+      test.issues.push(...clinicalResult.issues.slice(0, 5));
+    } else if (clinicalResult.violationRate > 0.15) {
+      test.score -= clinicalResult.violationRate * 30;
+      test.issues.push(...clinicalResult.issues.slice(0, 3));
+    }
+  }
+  
+  // Check 4: Correlation sanity (age vs related features)
+  validateAgeCorrelations(dataset, schema, test);
+  
   if (test.score < 100) test.passed = false;
   
   return test;
+}
+
+function validateClinicalLogic(dataset, schema, topicKey) {
+  const result = {
+    violations: 0,
+    checked: 0,
+    issues: [],
+    violationRate: 0
+  };
+  
+  const strictRanges = CLINICAL_RULES[topicKey]?.strictRanges || {};
+  const targetCol = schema.columns.find(c => c.isTarget);
+  if (!targetCol) return result;
+  
+  dataset.forEach((row, idx) => {
+    const features = {};
+    schema.columns.forEach(col => {
+      if (!col.isTarget && !col.isId) {
+        features[col.name] = row[col.name];
+      }
+    });
+    
+    const targetValue = row[targetCol.name];
+    const diagnosis = evaluateClinicalRules(topicKey, features, strictRanges);
+    
+    result.checked++;
+    
+    if (diagnosis) {
+      if (diagnosis.targetValue !== targetValue) {
+        result.violations++;
+        if (result.issues.length < 10) {
+          result.issues.push(`Row ${idx + 1}: Clinical rule "${diagnosis.ruleName}" suggests ${diagnosis.targetValue}, but got ${targetValue}`);
+        }
+      }
+    }
+  });
+  
+  result.violationRate = result.checked > 0 ? result.violations / result.checked : 0;
+  
+  return result;
+}
+
+function validateAgeCorrelations(dataset, schema, test) {
+  const ageCol = schema.columns.find(c => c.name.toLowerCase().includes('age'));
+  if (!ageCol) return;
+  
+  const correlatedFeatures = {
+    'serum_cholesterol': { direction: 'positive', strength: 0.3 },
+    'resting_blood_pressure': { direction: 'positive', strength: 0.4 },
+    'maximum_heart_rate': { direction: 'negative', strength: -0.3 },
+    'bmi': { direction: 'positive', strength: 0.2 },
+    'glucose_concentration': { direction: 'positive', strength: 0.2 }
+  };
+  
+  for (const [featureName, expected] of Object.entries(correlatedFeatures)) {
+    const featureCol = schema.columns.find(c => c.name === featureName);
+    if (!featureCol) continue;
+    
+    const pairs = dataset
+      .map(r => ({ age: r[ageCol.name], value: r[featureName] }))
+      .filter(p => typeof p.age === 'number' && typeof p.value === 'number');
+    
+    if (pairs.length < 10) continue;
+    
+    const correlation = calculateCorrelation(
+      pairs.map(p => p.age),
+      pairs.map(p => p.value)
+    );
+    
+    if (expected.direction === 'positive' && correlation < -0.1) {
+      test.score -= 5;
+      test.issues.push(`${featureName}: Negative correlation with age (${correlation.toFixed(2)}) - unrealistic`);
+    }
+    
+    if (expected.direction === 'negative' && correlation > 0.1) {
+      test.score -= 5;
+      test.issues.push(`${featureName}: Positive correlation with age (${correlation.toFixed(2)}) - unrealistic`);
+    }
+  }
+}
+
+function calculateCorrelation(x, y) {
+  const n = x.length;
+  if (n === 0) return 0;
+  
+  const sumX = x.reduce((a, b) => a + b, 0);
+  const sumY = y.reduce((a, b) => a + b, 0);
+  const sumXY = x.reduce((total, xi, i) => total + xi * y[i], 0);
+  const sumX2 = x.reduce((a, b) => a + b * b, 0);
+  const sumY2 = y.reduce((a, b) => a + b * b, 0);
+  
+  const numerator = n * sumXY - sumX * sumY;
+  const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+  
+  if (denominator === 0) return 0;
+  return numerator / denominator;
 }
 
 function calculateValidationScore(tests) {

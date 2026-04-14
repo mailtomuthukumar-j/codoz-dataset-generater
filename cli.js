@@ -3,132 +3,142 @@
 /**
  * CODOZ CLI Entry Point
  * 
- * Command-line interface for the Analysis-First Dataset Engine.
- * 
- * Usage:
- *   node cli.js "diabetes dataset" --size 100 --format json
- *   node cli.js "customer churn" --size 500 --format csv
- *   node cli.js "credit card fraud" --size 200
+ * Simple, user-friendly command-line interface.
  */
 
-const { Command } = require('commander');
+const readline = require('readline');
 const { run } = require('./core/orchestrator');
+const { getAllTopics } = require('./core/knowledge_base');
 
-const program = new Command();
-
-program
-  .name('codoz')
-  .description('CODOZ - Analysis-First Dataset Engine\n\nGenerate realistic ML-ready synthetic datasets from topics.')
-  .version('1.0.0');
-
-program
-  .command('dataset generate')
-  .description('Generate a synthetic dataset from a topic')
-  .argument('<topic>', 'The topic to generate a dataset for (e.g., "diabetes dataset", "customer churn")')
-  .option('-s, --size <number>', 'Number of rows to generate', '100')
-  .option('-f, --format <format>', 'Output format: json, csv, or jsonl', 'json')
-  .option('--seed <number>', 'Random seed for reproducibility')
-  .action(async (topic, options) => {
-    try {
-      const result = run(topic, {
-        size: parseInt(options.size) || 100,
-        format: options.format || 'json',
-        seed: options.seed ? parseInt(options.seed) : Date.now()
-      });
-      
-      console.log('\nDataset generated successfully!');
-      process.exit(0);
-    } catch (error) {
-      console.error('\nError generating dataset:', error.message);
-      process.exit(1);
-    }
+function createInterface() {
+  return readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
   });
+}
 
-program
-  .command('topics')
-  .description('List all available topics in the knowledge base')
-  .action(() => {
-    const { getAllTopics } = require('./core/knowledge_base');
-    const topics = getAllTopics();
-    
-    console.log('\nAvailable Topics (' + topics.length + '):\n');
-    topics.forEach(topic => {
-      console.log('  ' + topic.key);
-      console.log('    Name: ' + topic.name);
-      console.log('    Entity: ' + topic.entity);
-      console.log('    ' + topic.description.substring(0, 60) + '...');
-      console.log('');
-    });
-  });
+function question(rl, prompt) {
+  return new Promise(resolve => rl.question(prompt, resolve));
+}
 
-// Also support direct arguments without subcommand
-if (process.argv.length > 2 && process.argv[2] !== 'dataset' && process.argv[2] !== 'topics') {
-  const args = process.argv.slice(2);
-  const options = {
-    size: 100,
-    format: 'json'
-  };
+async function interactiveMode() {
+  const rl = createInterface();
   
-  // Parse flags
-  const filteredArgs = [];
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === '--size' || arg === '-s') {
-      options.size = parseInt(args[++i]) || 100;
-    } else if (arg === '--format' || arg === '-f') {
-      options.format = args[++i] || 'json';
-    } else if (arg === '--seed') {
-      options.seed = parseInt(args[++i]);
-    } else if (arg.startsWith('--')) {
-      // Skip unknown flags
-    } else if (arg.startsWith('-')) {
-      // Skip short flags
-    } else {
-      filteredArgs.push(arg);
-    }
+  const topic = await question(rl, 'Enter dataset topic: ');
+  if (!topic.trim()) {
+    console.log('Topic is required. Exiting.');
+    rl.close();
+    process.exit(1);
   }
   
-  const topic = filteredArgs.join(' ');
-  if (topic) {
-    run(topic, options);
+  const sizeInput = await question(rl, 'Enter dataset size: ');
+  const size = parseInt(sizeInput) || 100;
+  
+  const formatInput = await question(rl, 'Select dataset format (json/csv/jsonl/tabular): ');
+  const format = ['csv', 'jsonl', 'tabular'].includes(formatInput.trim().toLowerCase()) 
+    ? formatInput.trim().toLowerCase() 
+    : 'json';
+  
+  const confirm = await question(rl, 'Confirm generation? ');
+  
+  rl.close();
+  
+  if (confirm.toLowerCase() !== 'yes' && confirm.toLowerCase() !== 'y') {
+    console.log('Cancelled.');
     process.exit(0);
   }
+  
+  run(topic.trim(), { size, format }, true);
 }
 
-// Show help if no arguments
-if (process.argv.length === 2) {
-  console.log(`
-╔═══════════════════════════════════════════════════════════════════╗
-║                                                                   ║
-║              CODOZ · ANALYSIS-FIRST DATASET ENGINE              ║
-║                                                                   ║
-║   Generate realistic ML-ready synthetic datasets from topics.    ║
-║                                                                   ║
-╠═══════════════════════════════════════════════════════════════════╣
-║                                                                   ║
-║   Usage:                                                          ║
-║     node cli.js "diabetes dataset" --size 100 --format json       ║
-║     node cli.js "customer churn" --size 500 --format csv           ║
-║     node cli.js topics                                           ║
-║                                                                   ║
-║   Options:                                                       ║
-║     -s, --size <number>     Number of rows (default: 100)        ║
-║     -f, --format <format>   Output format: json, csv, jsonl       ║
-║                                                                   ║
-╠═══════════════════════════════════════════════════════════════════╣
-║                                                                   ║
-║   Example Topics:                                                ║
-║     • diabetes          • customer churn                          ║
-║     • heart disease     • credit card fraud                       ║
-║     • breast cancer     • loan default                            ║
-║     • student performance  • employee attrition                  ║
-║     • machine maintenance  • sensor monitoring                    ║
-║                                                                   ║
-║   Run 'node cli.js topics' to see all available topics.         ║
-║                                                                   ║
-╚═══════════════════════════════════════════════════════════════════╝
+function showTopics() {
+  const topics = getAllTopics();
+  console.log('\nAvailable Topics (' + topics.length + '):\n');
+  topics.forEach(topic => {
+    console.log('  ' + topic.key);
+    console.log('    ' + topic.description.substring(0, 60) + '...\n');
+  });
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  
+  if (args[0] === 'dataset' && args[1] === 'topics') {
+    showTopics();
+    process.exit(0);
+  }
+  
+  if (args[0] === 'dataset' && args[1] === 'generate') {
+    const topic = args.slice(2).find(a => !a.startsWith('--')) || '';
+    if (!topic) {
+      await interactiveMode();
+      return;
+    }
+    
+    const options = { size: 100, format: 'json' };
+    for (let i = 2; i < args.length; i++) {
+      if (args[i] === '--size') options.size = parseInt(args[++i]) || 100;
+      if (args[i] === '--format') options.format = args[++i] || 'json';
+    }
+    
+    run(topic, options, true);
+    process.exit(0);
+  }
+  
+  if (args.length === 0) {
+    await interactiveMode();
+    return;
+  }
+  
+  if (args[0] === 'topics') {
+    showTopics();
+    process.exit(0);
+  }
+  
+  if (args[0] === '--help' || args[0] === '-h') {
+    console.log(`
+CODOZ - Analysis-First Dataset Engine
+
+Usage:
+  npx codoz "topic" --size 100 --format json
+  npx codoz dataset generate
+  npx codoz dataset topics
+
+Options:
+  --size <n>     Number of rows (default: 100)
+  --format       json, csv, jsonl, or tabular (default: json)
+
+Examples:
+  npx codoz "diabetes" --size 50 --format csv
+  npx codoz "customer churn" --format json
 `);
-  process.exit(0);
+    process.exit(0);
+  }
+  
+  let topic = '';
+  const options = { size: 100, format: 'json' };
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    
+    if (arg.startsWith('--') && arg.includes('=')) {
+      const parts = arg.slice(2).split('=');
+      if (parts[0] === 'size') options.size = parseInt(parts[1]) || 100;
+      if (parts[0] === 'format') options.format = parts[1] || 'json';
+      continue;
+    }
+    
+    if (arg === '--size') options.size = parseInt(args[++i]) || 100;
+    else if (arg === '--format') options.format = args[++i] || 'json';
+    else if (!arg.startsWith('--')) topic += (topic ? ' ' : '') + arg;
+  }
+  
+  if (!topic) {
+    console.log('Usage: npx codoz "topic" --size 100 --format json');
+    process.exit(1);
+  }
+  
+  run(topic, options, true);
 }
 
-program.parse(process.argv);
+main();

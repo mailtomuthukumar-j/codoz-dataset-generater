@@ -10,6 +10,7 @@
 
 function process(context) {
   const { topicAnalysis, target, features, causalRules } = context;
+  const silent = context.silent;
   
   if (!topicAnalysis) {
     return {
@@ -19,36 +20,37 @@ function process(context) {
     };
   }
   
-  console.log('━'.repeat(60));
-  console.log('PHASE 2: SCHEMA CONSTRUCTION');
-  console.log('━'.repeat(60));
+  if (!silent) {
+    console.log('━'.repeat(60));
+    console.log('PHASE 2: SCHEMA CONSTRUCTION');
+    console.log('━'.repeat(60));
+    console.log(`\nConstructing schema for: ${topicAnalysis.topic}`);
+    console.log(`Entity: ${topicAnalysis.entity}`);
+    console.log(`Context: ${topicAnalysis.context}`);
+  }
   
-  console.log(`\nConstructing schema for: ${topicAnalysis.topic}`);
-  console.log(`Entity: ${topicAnalysis.entity}`);
-  console.log(`Context: ${topicAnalysis.context}`);
-  
-  // Build the schema
   const schema = buildSchema(topicAnalysis, target, features, causalRules, context);
   
-  console.log(`\nSchema built successfully!`);
-  console.log(`  - Total columns: ${schema.columns.length}`);
-  console.log(`  - Target column: ${schema.targetColumn}`);
-  console.log(`  - Feature columns: ${schema.columns.filter(c => !c.isTarget).length}`);
-  
-  // Generate column summary
-  const columnSummary = schema.columns.map(c => ({
-    name: c.name,
-    type: c.dataType,
-    range: c.range ? `${c.range[0]} - ${c.range[1]}` : 'categorical',
-    isTarget: c.isTarget
-  }));
-  
-  console.log(`\nColumn definitions:`);
-  columnSummary.forEach(col => {
-    const targetMark = col.isTarget ? ' [TARGET]' : '';
-    const rangeInfo = col.range ? ` (${col.range})` : '';
-    console.log(`  - ${col.name}: ${col.type}${rangeInfo}${targetMark}`);
-  });
+  if (!silent) {
+    console.log(`\nSchema built successfully!`);
+    console.log(`  - Total columns: ${schema.columns.length}`);
+    console.log(`  - Target column: ${schema.targetColumn}`);
+    console.log(`  - Feature columns: ${schema.columns.filter(c => !c.isTarget).length}`);
+    
+    const columnSummary = schema.columns.map(c => ({
+      name: c.name,
+      type: c.dataType,
+      range: c.range ? `${c.range[0]} - ${c.range[1]}` : 'categorical',
+      isTarget: c.isTarget
+    }));
+    
+    console.log(`\nColumn definitions:`);
+    columnSummary.forEach(col => {
+      const targetMark = col.isTarget ? ' [TARGET]' : '';
+      const rangeInfo = col.range ? ` (${col.range})` : '';
+      console.log(`  - ${col.name}: ${col.type}${rangeInfo}${targetMark}`);
+    });
+  }
   
   return {
     ...context,
