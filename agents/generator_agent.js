@@ -1,3 +1,11 @@
+function generateUUIDv4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 function seededRandom(seed) {
   const x = Math.sin(seed++) * 10000;
   return x - Math.floor(x);
@@ -15,6 +23,7 @@ function process(context) {
   const size = context.size;
   const seed = context.seed || Date.now();
   const label_distribution = context.label_distribution || {};
+  const constraints = schema?.constraints || [];
   const domain = context.domain;
   
   if (!schema || !schema.columns) {
@@ -29,29 +38,28 @@ function process(context) {
   const idSet = new Set();
   const targetColumn = schema.columns.find(c => c.is_target);
   const targetValues = targetColumn?.categories || [0, 1];
+  const targetDistribution = calculateTargetDistribution(targetValues, label_distribution, size);
   
   for (let i = 0; i < size; i++) {
     let row = null;
     let attempts = 0;
     
     while (attempts < 10) {
-      const candidateRow = generateRow(schema.columns, i, seed, targetColumn, targetValues, label_distribution, domain);
+      const candidateRow = generateRow(schema.columns, constraints, i, seed, targetColumn, targetValues, targetDistribution[i], domain);
       
-      const idCol = schema.columns.find(c => c.is_id);
-      if (idCol && idSet.has(candidateRow[idCol.name])) {
+      const idVal = candidateRow.id;
+      if (idVal && idSet.has(idVal)) {
         attempts++;
         continue;
       }
       
       row = candidateRow;
-      if (idCol) {
-        idSet.add(row[idCol.name]);
-      }
+      if (idVal) idSet.add(idVal);
       break;
     }
     
     if (!row) {
-      row = generateRow(schema.columns, i, seed, targetColumn, targetValues, label_distribution, domain);
+      row = generateRow(schema.columns, constraints, i, seed, targetColumn, targetValues, targetDistribution[i], domain);
     }
     
     dataset.push(row);
@@ -68,57 +76,31 @@ function process(context) {
   };
 }
 
-function generateRow(columns, index, baseSeed, targetColumn, targetValues, labelDistribution, domain) {
+function generateRow(columns, constraints, index, baseSeed, targetColumn, targetValues, targetValue, domain) {
   const row = {};
-  const seed = baseSeed + index * 1000 + Date.now() % 1000;
+  const seed = baseSeed + index * 1000 + (Date.now() % 1000);
   
-  const targetValue = generateTargetValue(targetColumn, index, seed, labelDistribution);
+  const sortedColumns = [...columns].sort((a, b) => {
+    const orderA = a.generation_order || 5;
+    const orderB = b.generation_order || 5;
+    return orderA - orderB;
+  });
   
-  for (const col of columns) {
+  for (const col of sortedColumns) {
     if (col.is_target) {
       row[col.name] = targetValue;
-      continue;
+    } else if (col.dtype === 'uuid') {
+      row[col.name] = generateUUIDv4();
+    } else {
+      row[col.name] = generateValue(col, seed, row, targetValue, targetColumn, domain);
     }
-    
-    if (col.is_id) {
-      row[col.name] = generateId(col, index, seed, domain);
-      continue;
-    }
-    
-    row[col.name] = generateValue(col, index, seed, row, targetValue, targetColumn);
   }
   
   return row;
 }
 
-function generateId(column, index, seed, domain) {
-  const prefix = column.prefix || domain?.slice(0, 3).toUpperCase() || 'ID';
-  const num = String(index + 1).padStart(6, '0');
-  return `${prefix}${num}`;
-}
-
-function generateTargetValue(targetColumn, index, seed, labelDistribution) {
-  if (!targetColumn || !labelDistribution || Object.keys(labelDistribution).length === 0) {
-    return Math.random() > 0.5 ? 'Yes' : 'No';
-  }
-  
-  const rand = seededRandom(seed + index);
-  let cumulative = 0;
-  const entries = Object.entries(labelDistribution);
-  const total = entries.reduce((sum, [, v]) => sum + v, 0);
-  
-  for (const [value, weight] of entries) {
-    cumulative += weight / total;
-    if (rand <= cumulative) {
-      return value;
-    }
-  }
-  
-  return entries[entries.length - 1][0];
-}
-
-function generateValue(column, index, seed, context, targetValue, targetColumn) {
-  const rand = () => seededRandom(seed + index * 100 + hashString(column.name));
+function generateValue(column, seed, rowContext, targetValue, targetColumn, domain) {
+  const rand = () => seededRandom(seed + Date.now() % 1000);
   const normRand = () => {
     let u = 0, v = 0;
     while (u === 0) u = rand();
@@ -126,36 +108,22 @@ function generateValue(column, index, seed, context, targetValue, targetColumn) 
     return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
   };
   
+  const [min, max] = column.range || [0, 100];
+  
   switch (column.dtype) {
     case 'int': {
-      const [min, max] = column.range || [0, 100];
-      const dist = column.distribution || 'normal';
-      
-      if (dist === 'skewed') {
-        const r = rand();
-        return Math.round(min + Math.pow(r, 0.5) * (max - min));
-      }
-      
       const mean = (min + max) / 2;
       const std = (max - min) / 6;
-      return Math.round(Math.max(min, Math.min(max, mean + normRand() * std)));
+      const value = Math.round(Math.max(min, Math.min(max, mean + normRand() * std)));
+      return value;
     }
     
     case 'float': {
-      const [min, max] = column.range || [0, 100];
-      const dist = column.distribution || 'normal';
-      
-      let value;
-      if (dist === 'skewed') {
-        const r = rand();
-        value = min + Math.pow(r, 0.5) * (max - min);
-      } else {
-        const mean = (min + max) / 2;
-        const std = (max - min) / 6;
-        value = mean + normRand() * std;
-      }
-      
-      return parseFloat(Math.max(min, Math.min(max, value)).toFixed(2));
+      const mean = (min + max) / 2;
+      const std = (max - min) / 6;
+      let value = mean + normRand() * std;
+      value = Math.max(min, Math.min(max, value));
+      return parseFloat(value.toFixed(2));
     }
     
     case 'categorical': {
@@ -166,27 +134,66 @@ function generateValue(column, index, seed, context, targetValue, targetColumn) 
     case 'boolean':
       return rand() > 0.5;
     
+    case 'ordinal': {
+      const values = column.categories || ['low', 'medium', 'high'];
+      return values[Math.floor(rand() * values.length)];
+    }
+    
     case 'datetime': {
-      const start = new Date('2022-01-01').getTime();
+      const start = new Date('2020-01-01').getTime();
       const end = new Date('2024-12-31').getTime();
       return new Date(start + rand() * (end - start)).toISOString();
     }
     
+    case 'uuid':
+      return generateUUIDv4();
+    
     default: {
-      const [min, max] = column.range || [0, 100];
+      if (Number.isInteger(min) && Number.isInteger(max)) {
+        return Math.round(min + rand() * (max - min));
+      }
       return parseFloat((min + rand() * (max - min)).toFixed(2));
     }
   }
 }
 
-function hashString(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+function calculateTargetDistribution(targetValues, labelDistribution, size) {
+  const distribution = [];
+  const weights = {};
+  
+  if (typeof labelDistribution === 'object' && !Array.isArray(labelDistribution)) {
+    Object.assign(weights, labelDistribution);
+  } else if (targetValues.length === 2) {
+    weights[targetValues[0]] = 0.65;
+    weights[targetValues[1]] = 0.35;
+  } else {
+    const equal = 1 / targetValues.length;
+    for (const v of targetValues) {
+      weights[v] = equal;
+    }
   }
-  return Math.abs(hash);
+  
+  const entries = Object.entries(weights);
+  const totalWeight = entries.reduce((sum, [, w]) => sum + w, 0);
+  
+  for (let i = 0; i < size; i++) {
+    const r = Math.random() * totalWeight;
+    let cumulative = 0;
+    
+    for (const [value, weight] of entries) {
+      cumulative += weight;
+      if (r <= cumulative) {
+        distribution.push(value);
+        break;
+      }
+    }
+    
+    if (distribution.length <= i) {
+      distribution.push(entries[0][0]);
+    }
+  }
+  
+  return distribution;
 }
 
 module.exports = { process };

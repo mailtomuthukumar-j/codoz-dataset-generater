@@ -1,56 +1,39 @@
 {
   "dataset_name": "customer_churn_dataset",
   "generated_by": "CODOZ",
-  "generation_timestamp": "2026-04-14T17:50:17.093Z",
+  "generation_timestamp": "2026-04-14T17:59:03.079Z",
   "topic": "customer churn",
   "domain": "retail",
   "subdomain": "customer churn",
   "task_type": "classification",
   "target_column": "purchase_status",
   "total_rows": 3,
-  "total_columns": 13,
+  "total_columns": 8,
   "chunk_count": 1,
   "format": "json",
-  "final_quality_score": 98.56538461538462,
+  "final_quality_score": 98.95,
   "refinement_cycles_used": 0,
-  "schema_source": "dynamic_inference",
+  "schema_source": "strict_dynamic_generation",
   "label_distribution": {
     "Rejected": 3
   },
   "schema": [
     {
-      "name": "customer_id",
-      "dtype": "categorical",
-      "range": null,
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "age",
-      "dtype": "int",
-      "range": [
-        18,
-        90
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "gender",
+      "name": "purchase_status",
       "dtype": "categorical",
       "range": null,
       "categories": [
-        "Male",
-        "Female"
+        "Rejected",
+        "Approved"
       ],
-      "is_target": false
+      "is_target": true
     },
     {
       "name": "order_total",
       "dtype": "float",
       "range": [
         5,
-        2000
+        5000
       ],
       "categories": null,
       "is_target": false
@@ -76,76 +59,44 @@
       "is_target": false
     },
     {
-      "name": "index",
+      "name": "discount_percent",
       "dtype": "int",
       "range": [
         0,
-        1000
+        70
       ],
       "categories": null,
       "is_target": false
     },
     {
-      "name": "customer_rate",
-      "dtype": "float",
+      "name": "id",
+      "dtype": "uuid",
+      "range": null,
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "age",
+      "dtype": "int",
       "range": [
-        0,
+        18,
         100
       ],
       "categories": null,
       "is_target": false
     },
     {
-      "name": "customer_ratio",
-      "dtype": "float",
-      "range": [
-        0,
-        1
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "customer_total",
-      "dtype": "float",
-      "range": [
-        0,
-        50000
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "customer_percent",
-      "dtype": "float",
-      "range": [
-        0,
-        100
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "customer_duration",
-      "dtype": "int",
-      "range": [
-        0,
-        1000
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "purchase_status",
+      "name": "gender",
       "dtype": "categorical",
       "range": null,
       "categories": [
-        "Rejected",
-        "Approved"
+        "male",
+        "female",
+        "other"
       ],
-      "is_target": true
+      "is_target": false
     }
   ],
-  "applied_constraints": 0,
+  "applied_constraints": 2,
   "known_limitations": []
 }

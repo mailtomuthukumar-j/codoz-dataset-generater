@@ -1,121 +1,24 @@
 {
   "dataset_name": "diabetes_dataset",
   "generated_by": "CODOZ",
-  "generation_timestamp": "2026-04-14T17:50:07.921Z",
+  "generation_timestamp": "2026-04-14T17:56:55.211Z",
   "topic": "diabetes",
   "domain": "medical",
   "subdomain": "diabetes",
   "task_type": "classification",
   "target_column": "diagnosis",
   "total_rows": 5,
-  "total_columns": 11,
+  "total_columns": 9,
   "chunk_count": 1,
   "format": "json",
-  "final_quality_score": 99.25,
+  "final_quality_score": 99.85,
   "refinement_cycles_used": 0,
-  "schema_source": "dynamic_inference",
+  "schema_source": "strict_dynamic_generation",
   "label_distribution": {
-    "Positive": 3,
-    "Negative": 2
+    "Negative": 3,
+    "Positive": 2
   },
   "schema": [
-    {
-      "name": "patient_id",
-      "dtype": "categorical",
-      "range": null,
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "age",
-      "dtype": "int",
-      "range": [
-        18,
-        90
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "gender",
-      "dtype": "categorical",
-      "range": null,
-      "categories": [
-        "Male",
-        "Female"
-      ],
-      "is_target": false
-    },
-    {
-      "name": "blood_pressure",
-      "dtype": "float",
-      "range": [
-        80,
-        200
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "heart_rate",
-      "dtype": "int",
-      "range": [
-        40,
-        180
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "temperature",
-      "dtype": "float",
-      "range": [
-        35,
-        41
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "total",
-      "dtype": "float",
-      "range": [
-        0,
-        50000
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "diabetes_value",
-      "dtype": "float",
-      "range": [
-        0,
-        100
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "diabetes_duration",
-      "dtype": "int",
-      "range": [
-        0,
-        1000
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "diabetes_frequency",
-      "dtype": "int",
-      "range": [
-        0,
-        100
-      ],
-      "categories": null,
-      "is_target": false
-    },
     {
       "name": "diagnosis",
       "dtype": "categorical",
@@ -125,8 +28,86 @@
         "Positive"
       ],
       "is_target": true
+    },
+    {
+      "name": "glucose",
+      "dtype": "float",
+      "range": [
+        50,
+        500
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "hba1c",
+      "dtype": "float",
+      "range": [
+        4,
+        16
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "bmi",
+      "dtype": "float",
+      "range": [
+        15,
+        55
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "blood_pressure_systolic",
+      "dtype": "int",
+      "range": [
+        60,
+        180
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "blood_pressure_diastolic",
+      "dtype": "int",
+      "range": [
+        40,
+        120
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "id",
+      "dtype": "uuid",
+      "range": null,
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "age",
+      "dtype": "int",
+      "range": [
+        18,
+        100
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "gender",
+      "dtype": "categorical",
+      "range": null,
+      "categories": [
+        "male",
+        "female",
+        "other"
+      ],
+      "is_target": false
     }
   ],
-  "applied_constraints": 0,
+  "applied_constraints": 7,
   "known_limitations": []
 }
