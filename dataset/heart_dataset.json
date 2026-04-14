@@ -1,0 +1,52 @@
+[
+  {
+    "id": "REC000001",
+    "feature_1": 43.21,
+    "feature_2": 43.21,
+    "feature_3": 43.21,
+    "feature_4": 43.21,
+    "feature_5": 4,
+    "category": "B",
+    "target": 0
+  },
+  {
+    "id": "REC000002",
+    "feature_1": 58.23,
+    "feature_2": 58.23,
+    "feature_3": 58.23,
+    "feature_4": 58.23,
+    "feature_5": 6,
+    "category": "B",
+    "target": 0
+  },
+  {
+    "id": "REC000003",
+    "feature_1": 52.26,
+    "feature_2": 52.26,
+    "feature_3": 52.26,
+    "feature_4": 52.26,
+    "feature_5": 5,
+    "category": "A",
+    "target": 1
+  },
+  {
+    "id": "REC000004",
+    "feature_1": 32.48,
+    "feature_2": 32.48,
+    "feature_3": 32.48,
+    "feature_4": 32.48,
+    "feature_5": 3,
+    "category": "A",
+    "target": 0
+  },
+  {
+    "id": "REC000005",
+    "feature_1": 31.96,
+    "feature_2": 31.96,
+    "feature_3": 31.96,
+    "feature_4": 31.96,
+    "feature_5": 3,
+    "category": "A",
+    "target": 0
+  }
+]

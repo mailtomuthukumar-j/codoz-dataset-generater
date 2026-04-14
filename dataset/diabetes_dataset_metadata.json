@@ -1,0 +1,170 @@
+{
+  "name": "diabetes_dataset",
+  "version": "1.0.0",
+  "generated_at": "2026-04-14T16:31:26.500Z",
+  "generation_mode": "dynamic",
+  "topic": "diabetes",
+  "domain": "medical",
+  "task_type": "classification",
+  "format": "json",
+  "size": 5,
+  "columns": [
+    {
+      "name": "diabet_id",
+      "type": "id"
+    },
+    {
+      "name": "age",
+      "type": "integer",
+      "range": [
+        18,
+        80
+      ]
+    },
+    {
+      "name": "marital_status",
+      "type": "categorical",
+      "values": [
+        "Single",
+        "Married",
+        "Divorced",
+        "Widowed"
+      ]
+    },
+    {
+      "name": "score_count",
+      "type": "float",
+      "range": [
+        0,
+        273
+      ]
+    },
+    {
+      "name": "count_score",
+      "type": "float",
+      "range": [
+        0,
+        519
+      ]
+    },
+    {
+      "name": "test_rate",
+      "type": "float",
+      "range": [
+        0,
+        50
+      ]
+    },
+    {
+      "name": "treatment_value",
+      "type": "integer",
+      "range": [
+        0,
+        9387
+      ]
+    },
+    {
+      "name": "blood_type",
+      "type": "categorical",
+      "values": [
+        "Type A",
+        "Type B",
+        "Type C",
+        "Type D"
+      ]
+    },
+    {
+      "name": "category",
+      "type": "categorical",
+      "values": [
+        "Category 1",
+        "Category 2",
+        "Category 3"
+      ]
+    },
+    {
+      "name": "status",
+      "type": "categorical",
+      "values": [
+        "Active",
+        "Inactive",
+        "Pending",
+        "Completed",
+        "Cancelled"
+      ]
+    },
+    {
+      "name": "target",
+      "type": "binary",
+      "range": [
+        0,
+        1
+      ]
+    }
+  ],
+  "stats": {
+    "age": {
+      "min": 44,
+      "max": 50,
+      "mean": 47,
+      "stdDev": 2
+    },
+    "score_count": {
+      "min": 66.87,
+      "max": 238.96,
+      "mean": 173.86,
+      "stdDev": 70.17
+    },
+    "count_score": {
+      "min": 101.77,
+      "max": 373.84,
+      "mean": 233.28,
+      "stdDev": 93.46
+    },
+    "test_rate": {
+      "min": 30.36,
+      "max": 49.47,
+      "mean": 41.85,
+      "stdDev": 7.43
+    },
+    "treatment_value": {
+      "min": 3135,
+      "max": 7695,
+      "mean": 5495.6,
+      "stdDev": 1698.07
+    }
+  },
+  "distributions": {
+    "marital_status": {
+      "Single": 1,
+      "Married": 2,
+      "Widowed": 1,
+      "Divorced": 1
+    },
+    "blood_type": {
+      "Type D": 2,
+      "Type B": 1,
+      "Type A": 2
+    },
+    "category": {
+      "Category 3": 2,
+      "Category 2": 2,
+      "Category 1": 1
+    },
+    "status": {
+      "Active": 2,
+      "Pending": 1,
+      "Inactive": 2
+    }
+  },
+  "correlations": {
+    "count_score": [
+      "test_rate"
+    ],
+    "test_rate": [
+      "treatment_value"
+    ]
+  },
+  "source": "CODOZ Dynamic Dataset Generator",
+  "license": "MIT"
+}

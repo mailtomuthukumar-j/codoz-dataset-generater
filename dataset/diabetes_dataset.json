@@ -1,0 +1,67 @@
+[
+  {
+    "diabet_id": "DIAB000001",
+    "age": 46,
+    "marital_status": "Single",
+    "score_count": 238.96,
+    "count_score": 164.19,
+    "test_rate": 49.14,
+    "treatment_value": 6898,
+    "blood_type": "Type D",
+    "category": "Category 3",
+    "status": "Active",
+    "target": 0
+  },
+  {
+    "diabet_id": "DIAB000002",
+    "age": 48,
+    "marital_status": "Married",
+    "score_count": 237.59,
+    "count_score": 373.84,
+    "test_rate": 49.47,
+    "treatment_value": 4078,
+    "blood_type": "Type B",
+    "category": "Category 3",
+    "status": "Pending",
+    "target": 0
+  },
+  {
+    "diabet_id": "DIAB000003",
+    "age": 47,
+    "marital_status": "Widowed",
+    "score_count": 114.79,
+    "count_score": 258.59,
+    "test_rate": 43.81,
+    "treatment_value": 5672,
+    "blood_type": "Type A",
+    "category": "Category 2",
+    "status": "Inactive",
+    "target": 0
+  },
+  {
+    "diabet_id": "DIAB000004",
+    "age": 50,
+    "marital_status": "Divorced",
+    "score_count": 66.87,
+    "count_score": 268.01,
+    "test_rate": 36.49,
+    "treatment_value": 3135,
+    "blood_type": "Type D",
+    "category": "Category 2",
+    "status": "Inactive",
+    "target": 0
+  },
+  {
+    "diabet_id": "DIAB000005",
+    "age": 44,
+    "marital_status": "Married",
+    "score_count": 211.09,
+    "count_score": 101.77,
+    "test_rate": 30.36,
+    "treatment_value": 7695,
+    "blood_type": "Type A",
+    "category": "Category 1",
+    "status": "Active",
+    "target": 0
+  }
+]

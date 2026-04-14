@@ -1,0 +1,102 @@
+[
+  {
+    "patient_id": "C",
+    "age": 73,
+    "gender": "Male",
+    "glucose": 184.96,
+    "blood_pressure": 1025.65,
+    "cholesterol": 204.66,
+    "heart_rate": 147.66,
+    "target": "0"
+  },
+  {
+    "patient_id": "A",
+    "age": 66,
+    "gender": "Female",
+    "glucose": 238.66,
+    "blood_pressure": 1037,
+    "cholesterol": 311.78,
+    "heart_rate": 112.95,
+    "target": "0"
+  },
+  {
+    "patient_id": "C",
+    "age": 31,
+    "gender": "Female",
+    "glucose": 123.41,
+    "blood_pressure": 965.02,
+    "cholesterol": 166.93,
+    "heart_rate": 147.23,
+    "target": "0"
+  },
+  {
+    "patient_id": "B",
+    "age": 50,
+    "gender": "Female",
+    "glucose": 180.36,
+    "blood_pressure": 1051.97,
+    "cholesterol": 140.03,
+    "heart_rate": 121.57,
+    "target": "0"
+  },
+  {
+    "patient_id": "A",
+    "age": 80,
+    "gender": "Male",
+    "glucose": 158.59,
+    "blood_pressure": 1022.06,
+    "cholesterol": 288.36,
+    "heart_rate": 124.9,
+    "target": "0"
+  },
+  {
+    "patient_id": "A",
+    "age": 31,
+    "gender": "Female",
+    "glucose": 144.88,
+    "blood_pressure": 1049.15,
+    "cholesterol": 261.51,
+    "heart_rate": 134.26,
+    "target": "1"
+  },
+  {
+    "patient_id": "B",
+    "age": 67,
+    "gender": "Female",
+    "glucose": 194.54,
+    "blood_pressure": 994.3,
+    "cholesterol": 332.03,
+    "heart_rate": 124.3,
+    "target": "1"
+  },
+  {
+    "patient_id": "A",
+    "age": 37,
+    "gender": "Male",
+    "glucose": 196.46,
+    "blood_pressure": 1076.74,
+    "cholesterol": 362.44,
+    "heart_rate": 140.3,
+    "target": "0"
+  },
+  {
+    "patient_id": "C",
+    "age": 28,
+    "gender": "Male",
+    "glucose": 224.12,
+    "blood_pressure": 1021.44,
+    "cholesterol": 244.61,
+    "heart_rate": 117.44,
+    "target": "0"
+  },
+  {
+    "patient_id": "A",
+    "age": 69,
+    "gender": "Male",
+    "glucose": 162.31,
+    "blood_pressure": 1024.6,
+    "cholesterol": 286.61,
+    "heart_rate": 146.39,
+    "target": "0"
+  }
+]

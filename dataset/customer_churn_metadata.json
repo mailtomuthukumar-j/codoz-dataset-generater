@@ -1,0 +1,117 @@
+{
+  "dataset_name": "customer_churn_dataset",
+  "generated_by": "CODOZ",
+  "generation_timestamp": "2026-04-14T16:46:30.842Z",
+  "topic": "customer churn",
+  "domain": "retail",
+  "subdomain": "customer churn",
+  "task_type": "classification",
+  "target_column": "churn",
+  "total_rows": 20,
+  "total_columns": 9,
+  "chunk_count": 1,
+  "format": "csv",
+  "final_quality_score": 99.85,
+  "refinement_cycles_used": 0,
+  "schema_source": "llm_knowledge",
+  "label_distribution": {
+    "No": 12,
+    "Yes": 8
+  },
+  "schema": [
+    {
+      "name": "customer_id",
+      "dtype": "categorical",
+      "range": null,
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "age",
+      "dtype": "int",
+      "range": [
+        18,
+        80
+      ],
+      "categories": [
+        "Category A",
+        "Category B",
+        "Category C"
+      ],
+      "is_target": false
+    },
+    {
+      "name": "gender",
+      "dtype": "categorical",
+      "range": null,
+      "categories": [
+        "Male",
+        "Female"
+      ],
+      "is_target": false
+    },
+    {
+      "name": "latitude",
+      "dtype": "float",
+      "range": [
+        -90,
+        90
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "longitude",
+      "dtype": "float",
+      "range": [
+        -180,
+        180
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "churn",
+      "dtype": "categorical",
+      "range": null,
+      "categories": [
+        "No",
+        "Yes"
+      ],
+      "is_target": true
+    },
+    {
+      "name": "index",
+      "dtype": "int",
+      "range": [
+        1,
+        10000
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "value",
+      "dtype": "float",
+      "range": [
+        0,
+        100
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "status",
+      "dtype": "categorical",
+      "range": null,
+      "categories": [
+        "Active",
+        "Inactive",
+        "Pending"
+      ],
+      "is_target": false
+    }
+  ],
+  "applied_constraints": 0,
+  "known_limitations": []
+}

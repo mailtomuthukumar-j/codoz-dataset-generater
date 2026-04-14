@@ -1,0 +1,106 @@
+{
+  "dataset_name": "diabetes_dataset",
+  "generated_by": "CODOZ",
+  "generation_timestamp": "2026-04-14T16:46:18.599Z",
+  "topic": "diabetes",
+  "domain": "medical",
+  "subdomain": "diabetes",
+  "task_type": "classification",
+  "target_column": "target",
+  "total_rows": 10,
+  "total_columns": 8,
+  "chunk_count": 1,
+  "format": "json",
+  "final_quality_score": 94.55,
+  "refinement_cycles_used": 0,
+  "schema_source": "llm_knowledge",
+  "label_distribution": {
+    "0": 8,
+    "1": 2
+  },
+  "schema": [
+    {
+      "name": "patient_id",
+      "dtype": "categorical",
+      "range": null,
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "age",
+      "dtype": "int",
+      "range": [
+        18,
+        80
+      ],
+      "categories": [
+        "Category A",
+        "Category B",
+        "Category C"
+      ],
+      "is_target": false
+    },
+    {
+      "name": "gender",
+      "dtype": "categorical",
+      "range": null,
+      "categories": [
+        "Male",
+        "Female"
+      ],
+      "is_target": false
+    },
+    {
+      "name": "glucose",
+      "dtype": "float",
+      "range": [
+        50,
+        300
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "blood_pressure",
+      "dtype": "float",
+      "range": [
+        900,
+        1100
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "cholesterol",
+      "dtype": "float",
+      "range": [
+        100,
+        400
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "heart_rate",
+      "dtype": "float",
+      "range": [
+        40,
+        200
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "target",
+      "dtype": "categorical",
+      "range": null,
+      "categories": [
+        0,
+        1
+      ],
+      "is_target": true
+    }
+  ],
+  "applied_constraints": 0,
+  "known_limitations": []
+}

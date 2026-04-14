@@ -1,0 +1,80 @@
+{
+  "name": "heart_dataset",
+  "version": "1.0.0",
+  "generated_at": "2026-04-14T13:38:45.105Z",
+  "topic": "heart",
+  "domain": "other",
+  "format": "json",
+  "size": 5,
+  "columns": [
+    {
+      "name": "id",
+      "type": "id",
+      "nullable": false
+    },
+    {
+      "name": "feature_1",
+      "type": "float",
+      "nullable": false
+    },
+    {
+      "name": "feature_2",
+      "type": "float",
+      "nullable": false
+    },
+    {
+      "name": "feature_3",
+      "type": "float",
+      "nullable": false
+    },
+    {
+      "name": "feature_4",
+      "type": "float",
+      "nullable": false
+    },
+    {
+      "name": "feature_5",
+      "type": "integer",
+      "nullable": false
+    },
+    {
+      "name": "category",
+      "type": "categorical",
+      "nullable": false
+    },
+    {
+      "name": "target",
+      "type": "binary",
+      "nullable": false
+    }
+  ],
+  "stats": {
+    "feature_1": {
+      "min": 31.96,
+      "max": 58.23,
+      "mean": 43.63
+    },
+    "feature_2": {
+      "min": 31.96,
+      "max": 58.23,
+      "mean": 43.63
+    },
+    "feature_3": {
+      "min": 31.96,
+      "max": 58.23,
+      "mean": 43.63
+    },
+    "feature_4": {
+      "min": 31.96,
+      "max": 58.23,
+      "mean": 43.63
+    },
+    "feature_5": {
+      "min": 3,
+      "max": 6,
+      "mean": 4.2
+    }
+  },
+  "source": "CODOZ Dataset Generator",
+  "license": "MIT"
+}
