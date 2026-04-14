@@ -44,9 +44,9 @@ function directMode(subArgs) {
   }
 
   if (!topic) {
-    console.log('Error: Topic is required');
-    console.log('Example: npx codoz dataset generate diabetes');
-    process.exit(1);
+    console.log('No topic provided. Starting interactive mode...\n');
+    interactiveMode();
+    return;
   }
 
   runSync(topic, { size, format });
