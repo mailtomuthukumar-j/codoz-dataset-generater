@@ -1,13 +1,13 @@
 {
-  "dataset_name": "diabetes_dataset",
+  "dataset_name": "diabetes_medical_dataset_dataset",
   "generated_by": "CODOZ",
-  "generation_timestamp": "2026-04-14T18:02:23.874Z",
-  "topic": "diabetes",
+  "generation_timestamp": "2026-04-14T18:42:07.560Z",
+  "topic": "diabetes medical dataset",
   "domain": "medical",
   "subdomain": "diabetes",
   "task_type": "classification",
   "target_column": "diagnosis",
-  "total_rows": 5,
+  "total_rows": 50,
   "total_columns": 9,
   "chunk_count": 1,
   "format": "json",
@@ -15,8 +15,8 @@
   "refinement_cycles_used": 0,
   "schema_source": "strict_dynamic_generation",
   "label_distribution": {
-    "Positive": 2,
-    "Negative": 3
+    "Positive": 17,
+    "Negative": 33
   },
   "schema": [
     {

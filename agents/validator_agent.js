@@ -87,6 +87,7 @@ function process(context) {
       correlation_compliance: { score: test9.score, passed: test9.passed, issues: test9.issues }
     },
     failures: [],
+    violations: [],
     refinement_cycle: context.refinement_cycle || 0,
     accept_anyway: (context.refinement_cycle || 0) >= 3
   };
@@ -99,6 +100,13 @@ function process(context) {
           score: result.score,
           issues: result.issues
         });
+        for (const issue of result.issues) {
+          report.violations.push({
+            test: testName,
+            description: issue,
+            type: 'constraint_breach'
+          });
+        }
       }
     }
   }

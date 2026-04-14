@@ -70,6 +70,7 @@ const INTER_COLUMN_CORRELATIONS = [
 
 function process(context) {
   const schema = context.schema;
+  const rules = context.rules || {};
   const size = context.size;
   const seed = context.seed || Date.now();
   const label_distribution = context.label_distribution || {};
@@ -90,12 +91,14 @@ function process(context) {
   const targetValues = targetColumn?.categories || [0, 1];
   const targetDistribution = calculateTargetDistribution(targetValues, label_distribution, size);
   
+  const generationOrder = rules.generation_order || schema.columns.map(c => c.name);
+  
   for (let i = 0; i < size; i++) {
     let row = null;
     let attempts = 0;
     
     while (attempts < 10) {
-      const candidateRow = generateRow(schema.columns, constraints, i, seed, targetColumn, targetValues, targetDistribution[i], domain);
+      const candidateRow = generateRow(schema.columns, constraints, i, seed, targetColumn, targetValues, targetDistribution[i], domain, generationOrder, rules);
       
       const idVal = candidateRow.id;
       if (idVal && idSet.has(idVal)) {
@@ -109,7 +112,7 @@ function process(context) {
     }
     
     if (!row) {
-      row = generateRow(schema.columns, constraints, i, seed, targetColumn, targetValues, targetDistribution[i], domain);
+      row = generateRow(schema.columns, constraints, i, seed, targetColumn, targetValues, targetDistribution[i], domain, generationOrder, rules);
     }
     
     dataset.push(row);
@@ -121,41 +124,59 @@ function process(context) {
     logs: [...context.logs, {
       timestamp: new Date().toISOString(),
       event: 'generation_complete',
-      data: { row_count: dataset.length, unique_ids: idSet.size, correlation_enforced: true }
+      data: { 
+        row_count: dataset.length, 
+        unique_ids: idSet.size, 
+        correlation_enforced: true,
+        causal_order_used: generationOrder.length > 0
+      }
     }]
   };
 }
 
-function generateRow(columns, constraints, index, baseSeed, targetColumn, targetValues, targetValue, domain) {
+function generateRow(columns, constraints, index, baseSeed, targetColumn, targetValues, targetValue, domain, generationOrder, rules) {
   const row = {};
   const seed = baseSeed + index * 1000 + (Date.now() % 1000);
   
-  const sortedColumns = [...columns].sort((a, b) => {
-    const orderA = a.generation_order || 5;
-    const orderB = b.generation_order || 5;
-    return orderA - orderB;
-  });
+  const columnMap = new Map(columns.map(c => [c.name, c]));
   
-  for (const col of sortedColumns) {
+  const orderedColumnNames = generationOrder.filter(name => columnMap.has(name));
+  for (const col of columns) {
+    if (!orderedColumnNames.includes(col.name)) {
+      orderedColumnNames.push(col.name);
+    }
+  }
+  
+  for (const colName of orderedColumnNames) {
+    const col = columnMap.get(colName);
+    if (!col) continue;
+    
     if (col.is_target) {
       row[col.name] = targetValue;
     } else if (col.dtype === 'uuid') {
       row[col.name] = generateUUIDv4();
     } else {
-      const correlationContext = buildCorrelationContext(row, targetValue, domain, targetColumn?.name);
+      const correlationContext = buildCorrelationContext(row, targetValue, domain, targetColumn?.name, rules);
       row[col.name] = generateValue(col, seed, row, targetValue, targetColumn, domain, correlationContext);
     }
+  }
+  
+  if (rules.deterministic && rules.deterministic.length > 0) {
+    const { applyDeterministicRules } = require('./logic_rules_agent');
+    return applyDeterministicRules(row, rules.deterministic, columns);
   }
   
   return row;
 }
 
-function buildCorrelationContext(row, targetValue, domain, targetName) {
+function buildCorrelationContext(row, targetValue, domain, targetName, rules) {
   const context = {
     targetValue,
     domain,
     targetName,
-    correlatedValues: {}
+    correlatedValues: {},
+    correlations: rules?.correlations || [],
+    deterministicRules: rules?.deterministic || []
   };
   
   for (const colName of Object.keys(row)) {

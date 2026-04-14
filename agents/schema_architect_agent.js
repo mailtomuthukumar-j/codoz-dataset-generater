@@ -106,18 +106,27 @@ function process(context) {
   columns.push({
     name: 'id',
     dtype: 'uuid',
-    null_rate: 0
+    null_rate: 0,
+    statistical_bounds: null,
+    description: 'Unique identifier'
   });
   
   const targetColName = context.target_column || inferTargetColumn(domain, task_type);
+  const targetRange = getDomainTargetRange(domain, targetColName, task_type);
   columns.push({
     name: targetColName,
     dtype: task_type === 'regression' ? 'float' : 'categorical',
-    range: task_type === 'regression' ? target_values : undefined,
+    range: targetRange,
     categories: task_type === 'regression' ? undefined : target_values,
     is_target: true,
     generation_order: 1,
-    null_rate: 0
+    null_rate: 0,
+    statistical_bounds: task_type === 'regression' ? {
+      min: targetRange[0],
+      max: targetRange[1],
+      mean_expected: (targetRange[0] + targetRange[1]) / 2
+    } : null,
+    description: 'Target variable to predict'
   });
   
   const demographics = generateDemographics(domain);
@@ -137,7 +146,9 @@ function process(context) {
       name: 'timestamp',
       dtype: 'datetime',
       null_rate: 0,
-      generation_order: 7
+      generation_order: 7,
+      statistical_bounds: null,
+      description: 'Event timestamp'
     });
   }
   
@@ -147,14 +158,18 @@ function process(context) {
       dtype: 'float',
       range: [-90.0, 90.0],
       null_rate: 0,
-      generation_order: 7
+      generation_order: 7,
+      statistical_bounds: { min: -90, max: 90, mean_expected: 0 },
+      description: 'Geographic latitude'
     });
     columns.push({
       name: 'longitude',
       dtype: 'float',
       range: [-180.0, 180.0],
       null_rate: 0,
-      generation_order: 7
+      generation_order: 7,
+      statistical_bounds: { min: -180, max: 180, mean_expected: 0 },
+      description: 'Geographic longitude'
     });
   }
   
@@ -344,6 +359,31 @@ function generateLabelDistribution(task_type, target_values) {
   }
   
   return { 'No': 0.65, 'Yes': 0.35 };
+}
+
+function getDomainTargetRange(domain, targetColumn, task_type) {
+  if (task_type !== 'regression') {
+    return undefined;
+  }
+  
+  const regressionTargets = {
+    medical: { health_score: [0, 100], risk_score: [0, 100] },
+    financial: { credit_score: [300, 850], income: [0, 500000], price: [0, 10000] },
+    education: { gpa: [0, 4.0], score: [0, 100] },
+    retail: { order_value: [0, 5000], price: [0, 1000] },
+    environmental: { aqi: [0, 500], temperature: [-50, 60] },
+    sports: { win_rate: [0, 100], kills_deaths_ratio: [0, 20] }
+  };
+  
+  const domainTargets = regressionTargets[domain] || {};
+  
+  for (const [colName, range] of Object.entries(domainTargets)) {
+    if (targetColumn.toLowerCase().includes(colName.toLowerCase())) {
+      return range;
+    }
+  }
+  
+  return [0, 100];
 }
 
 module.exports = { process };

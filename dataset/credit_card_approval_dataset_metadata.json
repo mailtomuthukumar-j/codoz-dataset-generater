@@ -1,13 +1,13 @@
 {
-  "dataset_name": "diabetes_dataset",
+  "dataset_name": "credit_card_approval_dataset_dataset",
   "generated_by": "CODOZ",
-  "generation_timestamp": "2026-04-14T18:02:23.874Z",
-  "topic": "diabetes",
-  "domain": "medical",
-  "subdomain": "diabetes",
+  "generation_timestamp": "2026-04-14T18:06:06.976Z",
+  "topic": "credit card approval dataset",
+  "domain": "financial",
+  "subdomain": "credit",
   "task_type": "classification",
-  "target_column": "diagnosis",
-  "total_rows": 5,
+  "target_column": "approval_status",
+  "total_rows": 30,
   "total_columns": 9,
   "chunk_count": 1,
   "format": "json",
@@ -15,66 +15,66 @@
   "refinement_cycles_used": 0,
   "schema_source": "strict_dynamic_generation",
   "label_distribution": {
-    "Positive": 2,
-    "Negative": 3
+    "Rejected": 20,
+    "Approved": 10
   },
   "schema": [
     {
-      "name": "diagnosis",
+      "name": "approval_status",
       "dtype": "categorical",
       "range": null,
       "categories": [
-        "Negative",
-        "Positive"
+        "Rejected",
+        "Approved"
       ],
       "is_target": true
     },
     {
-      "name": "glucose",
-      "dtype": "float",
-      "range": [
-        50,
-        500
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "hba1c",
-      "dtype": "float",
-      "range": [
-        4,
-        16
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "bmi",
-      "dtype": "float",
-      "range": [
-        15,
-        55
-      ],
-      "categories": null,
-      "is_target": false
-    },
-    {
-      "name": "blood_pressure_systolic",
+      "name": "credit_score",
       "dtype": "int",
       "range": [
-        60,
-        180
+        300,
+        850
       ],
       "categories": null,
       "is_target": false
     },
     {
-      "name": "blood_pressure_diastolic",
-      "dtype": "int",
+      "name": "income",
+      "dtype": "float",
       "range": [
-        40,
-        120
+        0,
+        500000
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "loan_amount",
+      "dtype": "float",
+      "range": [
+        1000,
+        1000000
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "debt_ratio",
+      "dtype": "float",
+      "range": [
+        0,
+        1
+      ],
+      "categories": null,
+      "is_target": false
+    },
+    {
+      "name": "payment_history",
+      "dtype": "float",
+      "range": [
+        0,
+        100
       ],
       "categories": null,
       "is_target": false
@@ -108,6 +108,6 @@
       "is_target": false
     }
   ],
-  "applied_constraints": 7,
+  "applied_constraints": 3,
   "known_limitations": []
 }

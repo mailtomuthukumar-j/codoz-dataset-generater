@@ -3,6 +3,15 @@ function process(context) {
   
   const analysis = analyzeTopic(topic);
   
+  const ontology = {
+    primary_domain: analysis.domain,
+    sub_domain: analysis.subdomain,
+    ml_task_type: analysis.task_type,
+    target_variable: analysis.target_column,
+    target_distribution_hint: analysis.distribution_hint,
+    core_entities: analysis.key_entities
+  };
+  
   return {
     ...context,
     domain: analysis.domain,
@@ -13,6 +22,7 @@ function process(context) {
     key_entities: analysis.key_entities,
     temporal: analysis.temporal,
     geospatial: analysis.geospatial,
+    ontology,
     search_queries: [
       `${topic} dataset machine learning`,
       `${topic} UCI kaggle dataset`,
@@ -21,7 +31,7 @@ function process(context) {
     logs: [...context.logs, {
       timestamp: new Date().toISOString(),
       event: 'topic_intelligence_complete',
-      data: { domain: analysis.domain, subdomain: analysis.subdomain, task_type: analysis.task_type }
+      data: { domain: analysis.domain, subdomain: analysis.subdomain, task_type: analysis.task_type, ontology }
     }]
   };
 }
@@ -38,6 +48,7 @@ function analyzeTopic(topic) {
   const key_entities = extractEntities(words, domain);
   const temporal = inferTemporal(words);
   const geospatial = inferGeospatial(words);
+  const distribution_hint = inferDistributionHint(domain, task_type);
   
   return {
     domain,
@@ -47,7 +58,8 @@ function analyzeTopic(topic) {
     target_values,
     key_entities,
     temporal,
-    geospatial
+    geospatial,
+    distribution_hint
   };
 }
 
@@ -245,6 +257,32 @@ function inferGeospatial(words) {
   }
   
   return false;
+}
+
+function inferDistributionHint(domain, task_type) {
+  if (task_type === 'regression') {
+    return 'normally_distributed';
+  }
+  
+  const distributionHints = {
+    medical: 'heavily_skewed',
+    financial: 'heavily_skewed',
+    education: 'normal',
+    retail: 'heavily_skewed',
+    environmental: 'normal',
+    social: 'heavily_skewed',
+    hr: 'normal',
+    telecom: 'heavily_skewed',
+    ecommerce: 'heavily_skewed',
+    agriculture: 'normal',
+    technology: 'normal',
+    sports: 'normal',
+    engineering: 'normal',
+    transportation: 'heavily_skewed',
+    scientific: 'normal'
+  };
+  
+  return distributionHints[domain] || 'normal';
 }
 
 module.exports = { process };
