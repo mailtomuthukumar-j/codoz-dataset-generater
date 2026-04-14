@@ -1,118 +1,172 @@
 #!/usr/bin/env node
 
-const { Command } = require('commander');
 const prompts = require('prompts');
 const fs = require('fs');
 const path = require('path');
 
-const program = new Command();
+const args = process.argv.slice(2);
 
-program
-  .name('codoz')
-  .description('CODOZ - AI Dataset Generator for ML-ready synthetic data')
-  .version('1.0.0');
+function main() {
+  if (args.length === 0) {
+    runInteractive();
+    return;
+  }
 
-program
-  .command('dataset')
-  .description('Generate a dataset (interactive mode)')
-  .argument('[topic]', 'Dataset topic (optional)')
-  .option('-s, --size <number>', 'Dataset size')
-  .option('-f, --format <type>', 'Output format')
-  .option('-y, --yes', 'Skip confirmation')
-  .action(async (topicArg, options) => {
-    await runGenerator(topicArg, options);
-  });
+  const firstArg = args[0];
+  const combinedArgs = args.join(' ');
 
-program
-  .command('generate')
-  .description('Quick generate (non-interactive)')
-  .argument('<topic...>', 'Dataset topic')
-  .option('-s, --size <number>', 'Dataset size', '500')
-  .option('-f, --format <type>', 'Output format', 'json')
-  .option('-y, --yes', 'Skip confirmation')
-  .action(async (topic, options) => {
-    const topicStr = Array.isArray(topic) ? topic.join(' ') : topic;
-    await quickGenerate(topicStr, options);
-  });
+  if (firstArg === 'dataset' || firstArg === 'generate') {
+    parseCommand(args.slice(1));
+  } else if (firstArg === '--help' || firstArg === '-h') {
+    showHelp();
+  } else if (combinedArgs.includes('generate')) {
+    const generateIndex = args.indexOf('generate');
+    parseCommand(args.slice(generateIndex + 1));
+  } else {
+    const topic = args.join(' ');
+    const options = parseOptions(args);
+    runGenerator(topic, options);
+  }
+}
+
+function parseCommand(subArgs) {
+  let topicParts = [];
+  const options = { size: '500', format: 'json', yes: true };
+
+  for (let i = 0; i < subArgs.length; i++) {
+    const part = subArgs[i];
+
+    if (part === '--size' || part === '-s') {
+      options.size = subArgs[i + 1] || '500';
+      i++;
+    } else if (part === '--format' || part === '-f') {
+      options.format = subArgs[i + 1] || 'json';
+      i++;
+    } else if (part === '--yes' || part === '-y') {
+      options.yes = true;
+    } else if (part === '--help' || part === '-h') {
+      showHelp();
+      return;
+    } else if (part === 'generate') {
+      continue;
+    } else {
+      topicParts.push(part);
+    }
+  }
+
+  const topic = topicParts.join(' ');
+
+  if (topic) {
+    runGenerator(topic, options);
+  } else {
+    runInteractive();
+  }
+}
+
+function parseOptions(args) {
+  const options = { size: '500', format: 'json', yes: true };
+
+  for (let i = 0; i < args.length; i++) {
+    const part = args[i];
+
+    if (part === '--size' || part === '-s') {
+      options.size = args[i + 1] || '500';
+      i++;
+    } else if (part === '--format' || part === '-f') {
+      options.format = args[i + 1] || 'json';
+      i++;
+    } else if (part === '--yes' || part === '-y') {
+      options.yes = true;
+    }
+  }
+
+  return options;
+}
+
+function showHelp() {
+  console.log('\nCODOZ - AI Dataset Generator\n');
+  console.log('Usage:');
+  console.log('  npx codoz dataset generate <topic> [options]');
+  console.log('  npx codoz generate <topic> [options]');
+  console.log('\nOptions:');
+  console.log('  -s, --size <number>    Dataset size (default: 500)');
+  console.log('  -f, --format <type>    Output format: json, csv, jsonl (default: json)');
+  console.log('  -y, --yes              Skip confirmation');
+  console.log('\nExamples:');
+  console.log('  npx codoz dataset generate diabetes --size 10');
+  console.log('  npx codoz generate "loan default" --format csv\n');
+}
+
+async function runInteractive() {
+  console.log('\n📊 CODOZ Dataset Generator\n');
+  console.log('━'.repeat(40) + '\n');
+
+  const questions = [
+    {
+      type: 'text',
+      name: 'topic',
+      message: 'Dataset Topic:',
+      initial: 'diabetes'
+    },
+    {
+      type: 'text',
+      name: 'size',
+      message: 'Enter dataset size:',
+      initial: '500'
+    },
+    {
+      type: 'select',
+      name: 'format',
+      message: 'Select dataset format:',
+      choices: [
+        { title: 'json', description: 'JSON array format', value: 'json' },
+        { title: 'csv', description: 'CSV format', value: 'csv' },
+        { title: 'jsonl', description: 'JSON Lines format', value: 'jsonl' }
+      ],
+      initial: 0
+    },
+    {
+      type: 'confirm',
+      name: 'confirm',
+      message: 'Confirm generation?',
+      initial: true
+    }
+  ];
+
+  let answers = {};
+  try {
+    answers = await prompts(questions, {
+      onCancel: () => {
+        console.log('\n\n❌ Generation cancelled.\n');
+        process.exit(0);
+      }
+    });
+  } catch (e) {
+    console.log('\n\n❌ Generation cancelled.\n');
+    process.exit(0);
+  }
+
+  if (answers.confirm === false) {
+    console.log('\n\n❌ Generation cancelled.\n');
+    return;
+  }
+
+  const options = {
+    size: parseInt(answers.size) || 500,
+    format: answers.format || 'json',
+    yes: true
+  };
+
+  await runGenerator(answers.topic, options);
+}
 
 async function runGenerator(topicArg, options) {
   console.log('\n📊 CODOZ Dataset Generator\n');
   console.log('━'.repeat(40) + '\n');
 
-  let finalTopic = topicArg;
-  let finalSize = parseInt(options.size) || 500;
-  let finalFormat = options.format || 'json';
-  let answers = {};
-
-  const needsTopic = !finalTopic;
-  const needsSize = !options.size;
-  const needsFormat = !options.format;
-
-  if (needsTopic || needsSize || needsFormat) {
-    const questions = [];
-
-    if (needsTopic) {
-      questions.push({
-        type: 'text',
-        name: 'topic',
-        message: 'Dataset Topic:',
-        validate: val => val.length > 0 ? true : 'Topic is required'
-      });
-    }
-
-    if (needsSize) {
-      questions.push({
-        type: 'text',
-        name: 'size',
-        message: 'Enter dataset size:',
-        initial: '500'
-      });
-    }
-
-    if (needsFormat) {
-      questions.push({
-        type: 'select',
-        name: 'format',
-        message: 'Select dataset format:',
-        choices: [
-          { title: 'json', description: 'JSON array format', value: 'json' },
-          { title: 'csv', description: 'CSV format', value: 'csv' },
-          { title: 'jsonl', description: 'JSON Lines format', value: 'jsonl' }
-        ],
-        initial: 0
-      });
-    }
-
-    if (!options.yes) {
-      questions.push({
-        type: 'confirm',
-        name: 'confirm',
-        message: 'Confirm generation?',
-        initial: true
-      });
-    }
-
-    try {
-      answers = await prompts(questions, {
-        onCancel: () => {
-          console.log('\n\n❌ Generation cancelled.\n');
-          process.exit(0);
-        }
-      });
-    } catch (e) {
-      console.log('\n\n❌ Generation cancelled.\n');
-      process.exit(0);
-    }
-
-    if (!options.yes && answers.confirm === false) {
-      console.log('\n\n❌ Generation cancelled.\n');
-      return;
-    }
-
-    finalTopic = finalTopic || answers.topic || 'dataset';
-    finalSize = needsSize ? parseInt(answers.size) || 500 : finalSize;
-    finalFormat = finalFormat || answers.format || 'json';
-  }
+  const finalTopic = topicArg || 'dataset';
+  const finalSize = parseInt(options.size) || 500;
+  const finalFormat = options.format || 'json';
 
   console.log('📋 Summary:');
   console.log(`   Topic:  ${finalTopic}`);
@@ -126,20 +180,32 @@ async function runGenerator(topicArg, options) {
   const subdomain = formatSubdomain(finalTopic);
   const schema = getRealisticSchema(domain);
 
+  if (!schema) {
+    console.error('❌ Schema generation failed for domain:', domain);
+    process.exit(1);
+  }
+
+  if (!schema.columns || !schema.target) {
+    console.error('❌ Invalid schema structure');
+    process.exit(1);
+  }
+
+  const schemaRanges = schema?.ranges || {};
   let attempts = 0;
   let data = '';
-  let metadata = {};
+  let rows = [];
 
   while (attempts < 5) {
-    const rows = generateRealisticRows(domain, schema, finalSize);
+    rows = generateRealisticRows(domain, schema, schemaRanges, finalSize);
     data = formatData(rows, finalFormat);
-    metadata = generateMetadata(finalTopic, { format: finalFormat, size: finalSize, domain, subdomain, schema, rows });
     const actualRows = countRows(data, finalFormat);
     if (actualRows === finalSize && !hasDuplicates(rows)) {
       break;
     }
     attempts++;
   }
+
+  const metadata = generateMetadata(finalTopic, { format: finalFormat, size: finalSize, domain, subdomain, schema, rows });
 
   const outputDir = 'codoz-dataset';
   if (!fs.existsSync(outputDir)) {
@@ -155,43 +221,6 @@ async function runGenerator(topicArg, options) {
   console.log(`   Dataset:  ${outputDir}/dataset.${finalFormat}`);
   console.log(`   Metadata: ${outputDir}/metadata.json`);
   console.log('━'.repeat(40) + '\n');
-}
-
-async function quickGenerate(topic, options) {
-  const format = options.format || 'json';
-  const size = parseInt(options.size) || 500;
-
-  console.log(`\n📊 Generating dataset for: ${topic}\n`);
-
-  const domain = detectDomain(topic);
-  const subdomain = formatSubdomain(topic);
-  const schema = getRealisticSchema(domain);
-
-  let attempts = 0;
-  let data = '';
-  let rows = [];
-
-  while (attempts < 5) {
-    rows = generateRealisticRows(domain, schema, size);
-    data = formatData(rows, format);
-    if (countRows(data, format) === size && !hasDuplicates(rows)) {
-      break;
-    }
-    attempts++;
-  }
-
-  const metadata = generateMetadata(topic, { format, size, domain, subdomain, schema, rows });
-
-  const outputDir = 'codoz-dataset';
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
-
-  fs.writeFileSync(path.join(outputDir, `dataset.${format}`), data);
-  fs.writeFileSync(path.join(outputDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
-
-  console.log('✅ Done!\n');
-  console.log(`   Output: ${outputDir}/dataset.${format}\n`);
 }
 
 function detectDomain(topic) {
@@ -229,7 +258,9 @@ function getRealisticSchema(domain) {
         glucose_level: { min: 70, max: 350 },
         hba1c: { min: 4.0, max: 14.0 },
         insulin: { min: 2, max: 50 },
-        waist_circumference: { min: 60, max: 150 }
+        waist_circumference: { min: 60, max: 150 },
+        physical_activity: { min: 0, max: 100 },
+        diet_quality: { min: 0, max: 100 }
       }
     },
     financial: {
@@ -245,7 +276,8 @@ function getRealisticSchema(domain) {
         employment_years: { min: 0, max: 40 },
         debt_amount: { min: 0, max: 100000 },
         credit_card_utilization: { min: 0, max: 100 },
-        num_open_accounts: { min: 1, max: 20 }
+        num_open_accounts: { min: 1, max: 20 },
+        derogatory_marks: { min: 0, max: 10 }
       }
     },
     education: {
@@ -265,7 +297,7 @@ function getRealisticSchema(domain) {
       }
     },
     retail: {
-      columns: ['customer_id', 'age', 'gender', 'annual_income', 'spending_score', 'purchase_frequency', 'average_order_value', 'product_diversity', 'preferred_category', 'membership_years', 'days_since_last_purchase', 'promotion_response_rate', 'online_vs_offline_ratio', 'return_rate', 'customer_support_tickets', 'churn_risk'],
+      columns: ['customer_id', 'age', 'annual_income', 'spending_score', 'purchase_frequency', 'average_order_value', 'product_diversity', 'preferred_category', 'membership_years', 'days_since_last_purchase', 'promotion_response_rate', 'online_vs_offline_ratio', 'return_rate', 'customer_support_tickets', 'churn_risk'],
       target: 'churn_risk',
       ranges: {
         age: { min: 18, max: 70 },
@@ -278,11 +310,12 @@ function getRealisticSchema(domain) {
         days_since_last_purchase: { min: 1, max: 365 },
         promotion_response_rate: { min: 0, max: 100 },
         online_vs_offline_ratio: { min: 0, max: 100 },
-        return_rate: { min: 0, max: 50 }
+        return_rate: { min: 0, max: 50 },
+        customer_support_tickets: { min: 0, max: 20 }
       }
     },
     environmental: {
-      columns: ['station_id', 'temperature_celsius', 'humidity_percent', 'air_quality_index', 'pm25_concentration', 'pm10_concentration', 'no2_ppb', 'o3_ppb', 'so2_ppb', 'co_ppm', 'wind_speed_kmh', 'wind_direction', 'precipitation_mm', 'traffic_density', 'industrial_proximity', 'health_risk_level'],
+      columns: ['station_id', 'temperature_celsius', 'humidity_percent', 'air_quality_index', 'pm25_concentration', 'pm10_concentration', 'no2_ppb', 'o3_ppb', 'so2_ppb', 'co_ppm', 'wind_speed_kmh', 'precipitation_mm', 'traffic_density', 'industrial_proximity', 'health_risk_level'],
       target: 'health_risk_level',
       ranges: {
         temperature_celsius: { min: -10, max: 45 },
@@ -317,27 +350,34 @@ function getRealisticSchema(domain) {
       }
     }
   };
-  return schemas[domain] || schemas.other;
-}
 
-function getOtherSchema() {
-  return {
+  return schemas[domain] || {
     columns: ['id', 'feature_1', 'feature_2', 'feature_3', 'feature_4', 'feature_5', 'target'],
     target: 'target',
-    ranges: { feature_1: { min: 0, max: 100 }, feature_2: { min: 0, max: 100 }, feature_3: { min: 0, max: 100 }, feature_4: { min: 0, max: 100 }, feature_5: { min: 0, max: 100 } }
+    ranges: {
+      feature_1: { min: 0, max: 100 },
+      feature_2: { min: 0, max: 100 },
+      feature_3: { min: 0, max: 100 },
+      feature_4: { min: 0, max: 100 },
+      feature_5: { min: 0, max: 100 }
+    }
   };
 }
 
-function generateRealisticRows(domain, schema, size) {
+function generateRealisticRows(domain, schema, schemaRanges, size) {
+  if (!schema || !schema.columns || !schema.target) {
+    throw new Error('Invalid schema: missing columns or target');
+  }
+
   const rows = [];
   const seen = new Set();
 
   for (let i = 0; i < size; i++) {
-    let row = generateRow(domain, schema, i);
+    let row = generateRow(domain, schema, schemaRanges, i);
     let attempts = 0;
 
     while (seen.has(JSON.stringify(row).slice(0, 100)) && attempts < 10) {
-      row = generateRow(domain, schema, i);
+      row = generateRow(domain, schema, schemaRanges, i);
       attempts++;
     }
 
@@ -348,20 +388,22 @@ function generateRealisticRows(domain, schema, size) {
   return rows;
 }
 
-function generateRow(domain, schema, index) {
+function generateRow(domain, schema, schemaRanges, index) {
+  if (!schema || !schema.columns) {
+    throw new Error('Cannot generate row: invalid schema');
+  }
+
   const row = {};
-  const ranges = schema.ranges || {};
+  const ranges = schemaRanges || {};
 
   schema.columns.forEach(col => {
     if (col === schema.target) return;
 
-    const range = ranges[col.replace(/_/g, '_')] || ranges[col] || { min: 0, max: 100 };
+    const range = ranges[col] || { min: 0, max: 100 };
 
     if (col === 'patient_id' || col === 'customer_id' || col === 'student_id' || col === 'station_id' || col === 'user_id' || col === 'id') {
       row[col] = `${col.split('_')[0]}_${String(index + 1).padStart(6, '0')}`;
-    } else if (col === 'gender' || col === 'employment_status' || col === 'home_ownership' || col === 'loan_intent' || col === 'preferred_category' || col === 'content_type' || col === 'verified_status' || col === 'smoking_status' || col === 'bmi_category' || col === 'socioeconomic_status' || col === 'part_time_job' || col === 'extracurricular' || col === 'traffic_density' || col === 'industrial_proximity' || col === 'wind_direction') {
-      row[col] = pickRandom(getCategoricalValues(col));
-    } else if (col === 'family_history_diabetes' || col === 'parental_education' || col === 'membership_years') {
+    } else if (col === 'gender' || col === 'employment_status' || col === 'home_ownership' || col === 'loan_intent' || col === 'preferred_category' || col === 'content_type' || col === 'verified_status' || col === 'smoking_status' || col === 'bmi_category' || col === 'socioeconomic_status' || col === 'part_time_job' || col === 'extracurricular' || col === 'traffic_density' || col === 'industrial_proximity' || col === 'wind_direction' || col === 'parental_education' || col === 'family_history_diabetes') {
       row[col] = pickRandom(getCategoricalValues(col));
     } else if (typeof range.min === 'number' && typeof range.max === 'number') {
       row[col] = generateRealisticValue(col, range.min, range.max, domain);
@@ -373,26 +415,18 @@ function generateRow(domain, schema, index) {
 }
 
 function generateRealisticValue(col, min, max, domain) {
-  const isDecimal = min < 0 || max > 100 || col.includes('ratio') || col.includes('rate') || col.includes('percent') || col.includes('score');
   const value = min + Math.random() * (max - min);
 
-  if (col === 'credit_score') return Math.round(value);
-  if (col === 'age' || col === 'employment_years' || col === 'num_open_accounts' || col === 'derogatory_marks' || col === 'loan_term_months' || col === 'prior_gpa' || col === 'midterm_score' || col === 'final_exam_score' || col === 'assignment_completion' || col === 'participation_score') {
+  if (['credit_score', 'age', 'employment_years', 'num_open_accounts', 'derogatory_marks', 'loan_term_months', 'prior_gpa', 'midterm_score', 'final_exam_score', 'assignment_completion', 'participation_score', 'membership_years', 'days_since_last_purchase', 'customer_support_tickets', 'product_diversity', 'purchase_frequency', 'spending_score'].includes(col)) {
     return Math.round(value * 10) / 10;
   }
-  if (col === 'sleep_hours' || col === 'study_hours_per_week' || col === 'internet_usage_hours') {
-    return Math.round(value * 10) / 10;
-  }
-  if (col === 'hba1c' || col === 'debt_to_income_ratio' || col === 'co_ppm') {
+  if (['sleep_hours', 'study_hours_per_week', 'internet_usage_hours', 'avg_engagement_rate', 'posting_frequency_per_week', 'account_age_years'].includes(col)) {
     return Math.round(value * 100) / 100;
   }
-  if (col === 'avg_engagement_rate' || col === 'posting_frequency_per_week') {
+  if (['hba1c', 'debt_to_income_ratio', 'co_ppm', 'return_rate', 'credit_card_utilization', 'promotion_response_rate', 'online_vs_offline_ratio', 'reels_percentage', 'hashtag_usage_rate', 'humidity_percent', 'attendance_percentage'].includes(col)) {
     return Math.round(value * 100) / 100;
   }
-  if (col === 'pm25_concentration' || col === 'pm10_concentration' || col === 'o3_ppb' || col === 'no2_ppb' || col === 'so2_ppb') {
-    return Math.round(value * 10) / 10;
-  }
-  if (isDecimal) {
+  if (['pm25_concentration', 'pm10_concentration', 'o3_ppb', 'no2_ppb', 'so2_ppb', 'wind_speed_kmh', 'precipitation_mm', 'temperature_celsius', 'air_quality_index', 'avg_likes_received', 'followers_count', 'following_count', 'posts_count', 'brand_partnerships', 'stories_per_week', 'average_order_value', 'annual_income', 'income_annual', 'loan_amount', 'debt_amount', 'waist_circumference'].includes(col)) {
     return Math.round(value * 100) / 100;
   }
 
@@ -401,33 +435,41 @@ function generateRealisticValue(col, min, max, domain) {
 
 function generateTarget(domain, row, target) {
   if (domain === 'medical') {
-    const risk = (row.hba1c > 6.5 ? 2 : row.hba1c > 5.7 ? 1 : 0) + (row.bmi > 30 ? 1 : 0) + (row.glucose_level > 140 ? 1 : 0);
-    const rand = Math.random();
-    if (risk >= 2 || rand < 0.15) return 'diabetic';
-    if (risk === 1 || (rand >= 0.15 && rand < 0.35)) return 'pre-diabetic';
+    const hba1c = row.hba1c || 5.5;
+    const bmi = row.bmi || 25;
+    const glucose = row.glucose_level || 100;
+    const risk = (hba1c > 6.5 ? 2 : hba1c > 5.7 ? 1 : 0) + (bmi > 30 ? 1 : 0) + (glucose > 140 ? 1 : 0);
+    if (risk >= 2 || Math.random() < 0.15) return 'diabetic';
+    if (risk === 1 || (Math.random() >= 0.15 && Math.random() < 0.35)) return 'pre-diabetic';
     return 'healthy';
   }
 
   if (domain === 'financial') {
-    const riskScore = (row.credit_score < 600 ? 3 : row.credit_score < 700 ? 1 : 0) +
-                      (row.debt_to_income_ratio > 0.4 ? 2 : row.debt_to_income_ratio > 0.3 ? 1 : 0) +
-                      (row.derogatory_marks > 0 ? 2 : 0);
+    const creditScore = row.credit_score || 600;
+    const dti = row.debt_to_income_ratio || 0.3;
+    const derogs = row.derogatory_marks || 0;
+    const riskScore = (creditScore < 600 ? 3 : creditScore < 700 ? 1 : 0) + (dti > 0.4 ? 2 : dti > 0.3 ? 1 : 0) + (derogs > 0 ? 2 : 0);
     if (riskScore >= 3 || Math.random() < 0.2) return 'high';
     if (riskScore >= 1 || Math.random() < 0.4) return 'medium';
     return 'low';
   }
 
   if (domain === 'education') {
-    const performance = (row.study_hours_per_week * 3) + row.attendance_percentage + (row.prior_gpa * 20) - (row.internet_usage_hours * 2);
+    const study = row.study_hours_per_week || 10;
+    const attendance = row.attendance_percentage || 75;
+    const priorGpa = row.prior_gpa || 3.0;
+    const internet = row.internet_usage_hours || 5;
+    const performance = (study * 3) + attendance + (priorGpa * 20) - (internet * 2);
     if (performance > 250 || Math.random() < 0.15) return Math.round((3.5 + Math.random() * 0.5) * 100) / 100;
     if (performance > 180 || Math.random() < 0.4) return Math.round((2.5 + Math.random() * 1.0) * 100) / 100;
     return Math.round((1.0 + Math.random() * 1.5) * 100) / 100;
   }
 
   if (domain === 'retail') {
-    const risk = (row.days_since_last_purchase > 90 ? 3 : row.days_since_last_purchase > 60 ? 2 : row.days_since_last_purchase > 30 ? 1 : 0) +
-                 (row.return_rate > 20 ? 2 : row.return_rate > 10 ? 1 : 0) +
-                 (row.promotion_response_rate < 10 ? 1 : 0);
+    const daysSince = row.days_since_last_purchase || 30;
+    const returnRate = row.return_rate || 5;
+    const promo = row.promotion_response_rate || 50;
+    const risk = (daysSince > 90 ? 3 : daysSince > 60 ? 2 : daysSince > 30 ? 1 : 0) + (returnRate > 20 ? 2 : returnRate > 10 ? 1 : 0) + (promo < 10 ? 1 : 0);
     if (risk >= 3) return 'high';
     if (risk >= 1) return 'medium';
     return 'low';
@@ -442,7 +484,9 @@ function generateTarget(domain, row, target) {
   }
 
   if (domain === 'social') {
-    const score = Math.log10(row.followers_count + 1) * 20 + row.avg_engagement_rate * 2;
+    const followers = row.followers_count || 1000;
+    const engagement = row.avg_engagement_rate || 5;
+    const score = Math.log10(followers + 1) * 20 + engagement * 2;
     if (score > 80) return 'influencer';
     if (score > 50) return 'micro_influencer';
     if (score > 25) return 'active';
@@ -528,9 +572,9 @@ function formatData(rows, format) {
 
 function generateMetadata(topic, options) {
   const domain = options.domain;
-  const schema = options.schema || getOtherSchema();
+  const schema = options.schema || getRealisticSchema(domain);
   const rows = options.rows || [];
-  const target = schema.target;
+  const target = schema?.target || 'target';
 
   const labelDist = {};
   rows.forEach(row => {
@@ -549,9 +593,9 @@ function generateMetadata(topic, options) {
     target_column: target,
     total_rows: options.size,
     format: options.format,
-    columns: schema.columns,
+    columns: schema?.columns || [],
     label_distribution: labelDist
   };
 }
 
-program.parse();
+main();
