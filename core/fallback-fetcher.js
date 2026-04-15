@@ -4,7 +4,7 @@
  * Uses domain blueprints to generate logically consistent synthetic data
  */
 
-const logger = require('../utils/logger');
+const logger = require('../src/utils/logger');
 const { getDomainBlueprintForTopic, detectDomain } = require('./domain-detector');
 const { generateDomainRow } = require('./domain-rules-engine');
 

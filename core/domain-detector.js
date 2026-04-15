@@ -3,7 +3,7 @@
  * Understands user topic and maps it to appropriate data domain family
  */
 
-const { isKaggleAvailable, isHuggingFaceAvailable, isDataGovAvailable } = require('../utils/env');
+const { isKaggleAvailable, isHuggingFaceAvailable, isDataGovAvailable } = require('../src/utils/env');
 const { DOMAIN_FAMILIES, getDomainBlueprint, hasBlueprint } = require('./domain-blueprints');
 
 const DOMAIN_FAMILIES_CONFIG = {
