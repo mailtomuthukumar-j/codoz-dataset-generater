@@ -28,7 +28,7 @@ const KNOWN_PUBLIC_DATASETS = {
     { source: 'kaggle', slug: 'laotse/credit-risk-dataset' }
   ],
   employee_attrition: [
-    { source: 'kaggle', slug: 'pk副7zibm/ibm-hr-analytics-attrition-dataset' }
+    { source: 'kaggle', slug: 'pavansubhasht/ibm-hr-analytics-attrition-dataset' }
   ],
   student_performance: [
     { source: 'kaggle', slug: 'stripathy/main-student-performance' },

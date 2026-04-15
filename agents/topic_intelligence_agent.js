@@ -44,7 +44,7 @@ function process(context) {
     if (!silent) {
       console.log(`\nKnowledge base match found!`);
       console.log(`  - Matched topic: ${match.config.name}`);
-      console.log(`  - Confidence: ${(match.confidence * 100).toFixed(0)}}%`);
+      console.log(`  - Confidence: ${(match.confidence * 100).toFixed(0)}%`);
     }
     
     const understanding = buildDeepUnderstanding(topic, analysis, match);

@@ -24,12 +24,12 @@ async function main() {
   
   if (args.length === 0) {
     await interactiveMode();
+  } else if (args[0] === '--help' || args[0] === '-h' || args[0] === 'help') {
+    showHelp();
   } else if (args[0] === 'topics') {
     await listTopics();
   } else if (args[0] === 'sources') {
     await checkAvailableSources();
-  } else if (args[0] === 'help') {
-    showHelp();
   } else {
     const options = parseArgs(args);
     await run(options.topic, options);
@@ -54,8 +54,7 @@ async function interactiveMode() {
   const sizeStr = await question('Enter dataset size (default: 100): ');
   const size = parseInt(sizeStr) || 100;
   
-  const format = await question('Select format (json/csv/jsonl/tabular) [default: json]: ');
-  const fmt = format.trim() || 'json';
+  const fmt = await selectFormat();
   
   const confirm = await question('\nFetch real data? (y/n): ');
   
@@ -65,6 +64,64 @@ async function interactiveMode() {
   }
   
   await run(topic.trim(), { size, format: fmt });
+}
+
+async function selectFormat() {
+  const formats = [
+    { name: 'JSON', value: 'json', description: 'JSON array format (default)' },
+    { name: 'CSV', value: 'csv', description: 'Comma-separated values' },
+    { name: 'JSONL', value: 'jsonl', description: 'JSON Lines (one object per line)' },
+    { name: 'TABULAR', value: 'tabular', description: 'Formatted table output' }
+  ];
+  
+  let selectedIndex = 0;
+  
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: true
+    });
+    
+    function render() {
+      rl.output.write('\x1B[2K');
+      rl.output.write('\x1B[0G');
+      rl.output.write('? Select dataset format:\n');
+      
+      formats.forEach((format, index) => {
+        if (index === selectedIndex) {
+          rl.output.write(`  \x1B[36m❯ ${format.name}\x1B[0m\n`);
+        } else {
+          rl.output.write(`    ${format.name}\n`);
+        }
+      });
+      
+      rl.output.write('\n  \x1B[90mUse ↑↓ arrows to select, Enter to confirm\x1B[0m');
+      rl.output.write('\x1B[2K');
+      rl.output.write('\x1B[0G');
+    }
+    
+    render();
+    
+    function onKeypress(s, key) {
+      if (key.name === 'up') {
+        selectedIndex = (selectedIndex - 1 + formats.length) % formats.length;
+        render();
+      } else if (key.name === 'down') {
+        selectedIndex = (selectedIndex + 1) % formats.length;
+        render();
+      } else if (key.name === 'return' || key.name === 'enter') {
+        readline.moveCursor(process.stdout, 0, -5);
+        readline.clearScreenDown(process.stdout);
+        console.log(`Selected: ${formats[selectedIndex].name}`);
+        rl.close();
+        process.stdin.removeListener('keypress', onKeypress);
+        resolve(formats[selectedIndex].value);
+      }
+    }
+    
+    process.stdin.on('keypress', onKeypress);
+  });
 }
 
 async function listTopics() {

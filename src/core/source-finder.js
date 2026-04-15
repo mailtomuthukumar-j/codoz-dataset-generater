@@ -10,7 +10,7 @@ const SOURCE_PRIORITIES = {
   kaggle: 1,
   huggingface: 2,
   uci: 3,
-  dataGov: 4
+  datagov: 4
 };
 
 function findBestSources(topicInfo) {
@@ -96,8 +96,8 @@ function getSourceConfig(source, identifier) {
       authMethod: 'HUGGINGFACE_API_KEY',
       downloadMethod: 'api'
     },
-    dataGov: {
-      type: 'dataGov',
+    datagov: {
+      type: 'datagov',
       domain: identifier,
       requiresAuth: false,
       authMethod: 'none',

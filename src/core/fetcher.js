@@ -26,9 +26,9 @@ async function fetchDataset(sourceConfig, options = {}) {
         logger.info(`Fetching from HuggingFace: ${identifier}`);
         return await huggingfaceSource.fetch(identifier, options);
       
-      case 'dataGov':
-        logger.info(`Fetching from Data.gov: ${domain}`);
-        return await dataGovSource.fetch(domain, options);
+      case 'datagov':
+        logger.info(`Fetching from Data.gov: ${identifier || domain}`);
+        return await dataGovSource.fetch(identifier || domain, options);
       
       default:
         logger.warn(`Unknown source type: ${type}`);
