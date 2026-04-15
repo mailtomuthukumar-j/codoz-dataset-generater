@@ -1,627 +1,296 @@
 /**
  * CODOZ Validator Agent
- * 
- * Analyzes and validates the constructed dataset:
- * 1. Schema relevance check
- * 2. Data quality check
- * 3. Constraint satisfaction
- * 4. Domain consistency
- * 5. Clinical logic validation (REALISM CHECK)
+ * Validates dataset consistency and logical integrity
+ * Parses _derivation field to verify labels are rule-derived
  */
 
-const { evaluateClinicalRules, hasClinicalRules, CLINICAL_RULES } = require('../core/clinical_rules');
+const { getDomainBlueprintForTopic } = require('../core/domain-detector');
+const { validateRow, evaluateIndicator } = require('../core/domain-rules-engine');
+
+function validateDataset(dataset, topic, options = {}) {
+  const blueprint = getDomainBlueprintForTopic(topic);
+  
+  if (!blueprint) {
+    return {
+      valid: true,
+      score: 100,
+      message: 'No blueprint available for validation',
+      issues: []
+    };
+  }
+  
+  const issues = [];
+  let validRows = 0;
+  let invalidRows = 0;
+  
+  for (let i = 0; i < dataset.length; i++) {
+    const row = dataset[i];
+    const rowIssues = validateRowFull(blueprint, row, i);
+    
+    if (rowIssues.length > 0) {
+      invalidRows++;
+      issues.push(...rowIssues);
+    } else {
+      validRows++;
+    }
+  }
+  
+  const score = dataset.length > 0 ? (validRows / dataset.length) * 100 : 0;
+  
+  return {
+    valid: score >= 80,
+    score: parseFloat(score.toFixed(2)),
+    totalRows: dataset.length,
+    validRows,
+    invalidRows,
+    issues: issues.slice(0, 20),
+    message: invalidRows === 0 
+      ? 'All rows passed validation' 
+      : `${invalidRows} rows failed validation`
+  };
+}
+
+function validateRowFull(blueprint, row, index) {
+  const issues = [];
+  
+  if (!row._derivation && !row.hasOwnProperty('_derivation')) {
+    issues.push({
+      row: index,
+      type: 'missing_derivation',
+      message: `Row ${index}: No _derivation field - label may not be rule-derived`
+    });
+  }
+  
+  const validation = validateRow(blueprint, row);
+  
+  if (!validation.valid) {
+    for (const violation of validation.violations) {
+      issues.push({
+        row: index,
+        type: violation.type,
+        column: violation.column,
+        message: `Row ${index}: ${violation.message}`
+      });
+    }
+  }
+  
+  if (blueprint.contradictions) {
+    for (const rule of blueprint.contradictions) {
+      if (rule.invalid) {
+        const result = evaluateIndicator(rule.condition, row, row);
+        if (result) {
+          issues.push({
+            row: index,
+            type: 'contradiction',
+            condition: rule.condition,
+            message: `Row ${index}: Logical contradiction detected - ${rule.condition}`
+          });
+        }
+      }
+    }
+  }
+  
+  const labelValidation = validateLabelDerivation(blueprint, row);
+  if (!labelValidation.valid) {
+    issues.push({
+      row: index,
+      type: 'label_mismatch',
+      message: `Row ${index}: ${labelValidation.message}`
+    });
+  }
+  
+  return issues;
+}
+
+function validateLabelDerivation(blueprint, row) {
+  const targetField = blueprint.target;
+  const label = row[targetField];
+  
+  const matchingRules = blueprint.labelRules.filter(rule => {
+    return rule.target === label;
+  });
+  
+  if (matchingRules.length === 0) {
+    return {
+      valid: false,
+      message: `Label "${label}" has no matching rules`
+    };
+  }
+  
+  let hasSupportingEvidence = false;
+  
+  for (const rule of matchingRules) {
+    const evidenceCount = rule.indicators.filter(indicator => {
+      return evaluateIndicator(indicator, row, row);
+    }).length;
+    
+    if (evidenceCount > 0) {
+      hasSupportingEvidence = true;
+      break;
+    }
+  }
+  
+  return {
+    valid: hasSupportingEvidence,
+    message: hasSupportingEvidence 
+      ? 'Label has supporting feature evidence' 
+      : `Label "${label}" has no supporting feature evidence`
+  };
+}
+
+function validateFeatureUniqueness(dataset) {
+  const issues = [];
+  
+  if (dataset.length < 2) return { valid: true, issues };
+  
+  const featureNames = Object.keys(dataset[0]).filter(k => !k.startsWith('_') && k !== 'id');
+  
+  for (const feature of featureNames) {
+    const values = dataset.map(r => r[feature]);
+    const uniqueValues = new Set(values);
+    
+    if (uniqueValues.size === 1) {
+      issues.push({
+        type: 'no_variance',
+        column: feature,
+        message: `Column "${feature}" has no variance - all values identical`
+      });
+    }
+  }
+  
+  return {
+    valid: issues.length === 0,
+    issues
+  };
+}
+
+function validateLabelDistribution(dataset, blueprint) {
+  const targetField = blueprint?.target;
+  if (!targetField) return { valid: true, issues: [] };
+  
+  const labelCounts = {};
+  dataset.forEach(row => {
+    const label = row[targetField];
+    labelCounts[label] = (labelCounts[label] || 0) + 1;
+  });
+  
+  const total = dataset.length;
+  const issues = [];
+  
+  for (const [label, count] of Object.entries(labelCounts)) {
+    const pct = (count / total) * 100;
+    
+    if (pct < 1) {
+      issues.push({
+        type: 'extreme_imbalance',
+        label,
+        percentage: pct.toFixed(2),
+        message: `Label "${label}" is extremely rare (${pct.toFixed(2)}%)`
+      });
+    }
+  }
+  
+  return {
+    valid: issues.length === 0,
+    distribution: labelCounts,
+    issues
+  };
+}
 
 function process(context) {
-  const { dataset, schema, topicAnalysis, datasetStats, topic } = context;
-  const silent = context.silent;
+  const { dataset, topic, silent } = context;
   
   if (!dataset || dataset.length === 0) {
     return {
       ...context,
       validationResult: {
-        status: 'FAIL',
+        valid: false,
         score: 0,
-        errors: ['Empty dataset']
-      },
-      logs: [...context.logs, createLog('validation_error', 'Empty dataset')]
+        message: 'Empty dataset'
+      }
     };
   }
   
-  if (!silent) {
-    console.log('━'.repeat(60));
-    console.log('PHASE 4: ANALYSIS & VALIDATION');
-    console.log('━'.repeat(60));
-    console.log(`\nAnalyzing dataset...`);
-    console.log(`  - Rows: ${dataset.length}`);
-    console.log(`  - Columns: ${Object.keys(dataset[0]).length}`);
-  }
+  const blueprint = getDomainBlueprintForTopic(topic);
   
-  const tests = runValidationTests(dataset, schema, topicAnalysis);
-  const score = calculateValidationScore(tests);
-  const status = score >= 80 ? 'PASS' : 'FAIL';
+  const datasetValidation = validateDataset(dataset, topic);
+  const uniquenessValidation = validateFeatureUniqueness(dataset);
+  const distributionValidation = validateLabelDistribution(dataset, blueprint);
+  
+  const allIssues = [
+    ...datasetValidation.issues,
+    ...uniquenessValidation.issues,
+    ...distributionValidation.issues
+  ];
+  
+  const finalScore = calculateOverallScore(
+    datasetValidation,
+    uniquenessValidation,
+    distributionValidation
+  );
   
   if (!silent) {
-    console.log(`\nValidation Results:`);
-    tests.forEach(test => {
-      const statusIcon = test.passed ? '✓' : '✗';
-      const statusText = test.passed ? 'PASS' : 'FAIL';
-      console.log(`  ${statusIcon} ${test.name}: ${statusText} (${test.score}%)`);
-      if (!test.passed && test.issues.length > 0) {
-        test.issues.slice(0, 3).forEach(issue => {
-          console.log(`      - ${issue}`);
-        });
+    console.log('\n═══════════════════════════════════════════════════════');
+    console.log('  VALIDATION RESULTS');
+    console.log('═══════════════════════════════════════════════════════\n');
+    console.log(`  Overall Score: ${finalScore.toFixed(1)}%\n`);
+    
+    if (allIssues.length > 0) {
+      console.log('  Issues found:');
+      allIssues.slice(0, 5).forEach(issue => {
+        console.log(`    • ${issue.message}`);
+      });
+      if (allIssues.length > 5) {
+        console.log(`    ... and ${allIssues.length - 5} more issues`);
       }
-    });
-    console.log(`\nOverall Score: ${score.toFixed(1)}%`);
-    console.log(`Status: ${status}`);
-  }
-  
-  const result = {
-    status,
-    score,
-    tests,
-    datasetStats: {
-      rowCount: dataset.length,
-      columnCount: Object.keys(dataset[0]).length,
-      targetDistribution: datasetStats?.targetDistribution || {}
+    } else {
+      console.log('  ✓ All validation checks passed');
     }
-  };
+    
+    console.log('\n═══════════════════════════════════════════════════════\n');
+  }
   
   return {
     ...context,
-    validationResult: result,
-    qualityScore: score,
-    logs: [...context.logs, createLog('validation_complete', {
-      status,
-      score,
-      testsPassed: tests.filter(t => t.passed).length,
-      totalTests: tests.length
-    })]
-  };
-}
-
-function runValidationTests(dataset, schema, topicAnalysis) {
-  const tests = [];
-  
-  // Test 1: Schema Relevance
-  tests.push(testSchemaRelevance(dataset, schema, topicAnalysis));
-  
-  // Test 2: Data Completeness
-  tests.push(testDataCompleteness(dataset, schema));
-  
-  // Test 3: Range Compliance
-  tests.push(testRangeCompliance(dataset, schema));
-  
-  // Test 4: Type Enforcement
-  tests.push(testTypeEnforcement(dataset, schema));
-  
-  // Test 5: Uniqueness
-  tests.push(testUniqueness(dataset, schema));
-  
-  // Test 6: Target Distribution
-  tests.push(testTargetDistribution(dataset, schema, topicAnalysis));
-  
-  // Test 7: Domain Consistency
-  tests.push(testDomainConsistency(dataset, schema, topicAnalysis));
-  
-  // Test 8: Realism
-  tests.push(testRealism(dataset, schema, topicAnalysis));
-  
-  return tests;
-}
-
-function testSchemaRelevance(dataset, schema, topicAnalysis) {
-  const test = {
-    name: 'Schema Relevance',
-    description: 'Dataset schema matches topic requirements',
-    passed: true,
-    score: 100,
-    issues: []
-  };
-  
-  // Check if target column exists
-  const targetCol = schema.columns.find(c => c.isTarget);
-  if (!targetCol) {
-    test.passed = false;
-    test.score = 0;
-    test.issues.push('No target column defined');
-  }
-  
-  // Check if ID column exists
-  const idCol = schema.columns.find(c => c.isId);
-  if (!idCol) {
-    test.passed = false;
-    test.score -= 10;
-    test.issues.push('No ID column defined');
-  }
-  
-  // Check minimum feature count
-  const featureCount = schema.columns.filter(c => !c.isTarget && !c.isId).length;
-  if (featureCount < 3) {
-    test.passed = false;
-    test.score -= 20;
-    test.issues.push(`Too few features: ${featureCount} (expected >= 3)`);
-  }
-  
-  if (test.score < 100) test.passed = false;
-  
-  return test;
-}
-
-function testDataCompleteness(dataset, schema) {
-  const test = {
-    name: 'Data Completeness',
-    description: 'All required fields are populated',
-    passed: true,
-    score: 100,
-    issues: []
-  };
-  
-  let totalCells = 0;
-  let emptyCells = 0;
-  
-  dataset.forEach((row, idx) => {
-    schema.columns.forEach(col => {
-      if (!col.nullable) {
-        totalCells++;
-        const val = row[col.name];
-        if (val === null || val === undefined || val === '' || val === 'None') {
-          emptyCells++;
-          if (test.issues.length < 5) {
-            test.issues.push(`Row ${idx + 1}: Empty ${col.name}`);
-          }
-        }
-      }
-    });
-  });
-  
-  if (emptyCells > 0) {
-    test.score = ((totalCells - emptyCells) / totalCells) * 100;
-    test.passed = test.score >= 99;
-  }
-  
-  return test;
-}
-
-function testRangeCompliance(dataset, schema) {
-  const test = {
-    name: 'Range Compliance',
-    description: 'Numeric values within defined ranges',
-    passed: true,
-    score: 100,
-    issues: []
-  };
-  
-  let violations = 0;
-  let checked = 0;
-  
-  dataset.forEach((row, idx) => {
-    schema.columns.forEach(col => {
-      if ((col.dataType === 'int' || col.dataType === 'float') && col.range) {
-        checked++;
-        const val = row[col.name];
-        
-        if (typeof val === 'number') {
-          if (val < col.range[0] || val > col.range[1]) {
-            violations++;
-            if (test.issues.length < 5) {
-              test.issues.push(`Row ${idx + 1}: ${col.name}=${val} outside [${col.range[0]}, ${col.range[1]}]`);
-            }
-          }
-        }
-      }
-    });
-  });
-  
-  if (checked > 0) {
-    test.score = ((checked - violations) / checked) * 100;
-    test.passed = test.score >= 99;
-  }
-  
-  return test;
-}
-
-function testTypeEnforcement(dataset, schema) {
-  const test = {
-    name: 'Type Enforcement',
-    description: 'Values match expected data types',
-    passed: true,
-    score: 100,
-    issues: []
-  };
-  
-  let violations = 0;
-  let checked = 0;
-  
-  dataset.forEach((row, idx) => {
-    schema.columns.forEach(col => {
-      const val = row[col.name];
-      if (val === null || val === undefined) return;
-      
-      checked++;
-      
-      switch (col.dataType) {
-        case 'int':
-          if (!Number.isInteger(val)) {
-            violations++;
-            if (test.issues.length < 3) {
-              test.issues.push(`Row ${idx + 1}: ${col.name} should be integer`);
-            }
-          }
-          break;
-        
-        case 'float':
-          if (typeof val !== 'number' || Number.isNaN(val)) {
-            violations++;
-          }
-          break;
-        
-        case 'categorical':
-          if (col.categories && !col.categories.includes(val)) {
-            violations++;
-            if (test.issues.length < 3) {
-              test.issues.push(`Row ${idx + 1}: ${col.name}="${val}" not in valid categories`);
-            }
-          }
-          break;
-        
-        case 'uuid':
-          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-          if (!uuidRegex.test(String(val))) {
-            violations++;
-          }
-          break;
-      }
-    });
-  });
-  
-  if (checked > 0) {
-    test.score = ((checked - violations) / checked) * 100;
-    test.passed = test.score >= 99;
-  }
-  
-  return test;
-}
-
-function testUniqueness(dataset, schema) {
-  const test = {
-    name: 'Uniqueness',
-    description: 'No duplicate IDs or rows',
-    passed: true,
-    score: 100,
-    issues: []
-  };
-  
-  // Check ID uniqueness
-  const idCol = schema.columns.find(c => c.isId);
-  if (idCol) {
-    const ids = dataset.map(r => r[idCol.name]);
-    const uniqueIds = new Set(ids);
-    
-    if (uniqueIds.size !== ids.length) {
-      test.passed = false;
-      test.score -= 30;
-      test.issues.push(`Duplicate IDs found: ${ids.length - uniqueIds.size} duplicates`);
+    validationResult: {
+      valid: datasetValidation.valid && uniquenessValidation.valid && distributionValidation.valid,
+      score: finalScore,
+      datasetValidation,
+      uniquenessValidation,
+      distributionValidation,
+      allIssues,
+      message: allIssues.length === 0 
+        ? 'Dataset passed all validation checks'
+        : `${allIssues.length} issues found`
     }
-  }
-  
-  // Check row uniqueness
-  const rowHashes = dataset.map(r => JSON.stringify(r));
-  const uniqueRows = new Set(rowHashes);
-  
-  if (uniqueRows.size !== rowHashes.length) {
-    test.passed = false;
-    test.score -= 20;
-    test.issues.push(`Duplicate rows found: ${rowHashes.length - uniqueRows.size} duplicates`);
-  }
-  
-  if (test.score < 100) test.passed = false;
-  
-  return test;
-}
-
-function testTargetDistribution(dataset, schema, topicAnalysis) {
-  const test = {
-    name: 'Target Distribution',
-    description: 'Target values have reasonable distribution',
-    passed: true,
-    score: 100,
-    issues: []
   };
-  
-  const targetCol = schema.columns.find(c => c.isTarget);
-  if (!targetCol || targetCol.dataType !== 'categorical') {
-    return test; // Skip for regression
-  }
-  
-  const dist = {};
-  dataset.forEach(row => {
-    const val = row[targetCol.name];
-    dist[val] = (dist[val] || 0) + 1;
-  });
-  
-  const values = Object.values(dist);
-  const total = values.reduce((a, b) => a + b, 0);
-  
-  // Check for extreme imbalance
-  for (const [val, count] of Object.entries(dist)) {
-    const pct = (count / total) * 100;
-    if (pct < 1 || pct > 99) {
-      test.passed = false;
-      test.score -= 20;
-      test.issues.push(`${val}: ${pct.toFixed(1)}% (extremely imbalanced)`);
-    } else if (pct < 5 || pct > 95) {
-      test.score -= 10;
-      test.issues.push(`${val}: ${pct.toFixed(1)}% (imbalanced)`);
-    }
-  }
-  
-  // Check expected distribution if available
-  if (topicAnalysis?.classDistribution) {
-    const expectedTotal = Object.values(topicAnalysis.classDistribution).reduce((a, b) => a + b, 0);
-    for (const [val, expectedPct] of Object.entries(topicAnalysis.classDistribution)) {
-      const actualPct = ((dist[val] || 0) / total) * 100;
-      const diff = Math.abs(actualPct - (expectedPct / expectedTotal * 100));
-      
-      if (diff > 30) {
-        test.passed = false;
-        test.score -= 15;
-        test.issues.push(`${val}: expected ~${(expectedPct / expectedTotal * 100).toFixed(0)}%, got ${actualPct.toFixed(0)}%`);
-      }
-    }
-  }
-  
-  if (test.score < 100) test.passed = false;
-  
-  return test;
 }
 
-function testDomainConsistency(dataset, schema, topicAnalysis) {
-  const test = {
-    name: 'Domain Consistency',
-    description: 'Values follow domain-specific rules',
-    passed: true,
-    score: 100,
-    issues: []
-  };
-  
-  const entity = topicAnalysis?.entity || 'record';
-  
-  // Entity-specific consistency checks
-  switch (entity) {
-    case 'patient':
-      // Age should be reasonable for medical context
-      const ageCol = schema.columns.find(c => c.name.toLowerCase().includes('age'));
-      if (ageCol) {
-        dataset.forEach((row, idx) => {
-          const age = row[ageCol.name];
-          if (age !== null && age !== undefined) {
-            if (age < 0 || age > 120) {
-              test.issues.push(`Row ${idx + 1}: Unreasonable age ${age}`);
-              test.score -= 5;
-            }
-          }
-        });
-      }
-      break;
-    
-    case 'transaction':
-      // Transaction amounts should be positive
-      const amountCol = schema.columns.find(c => 
-        c.name.toLowerCase().includes('amount') || 
-        c.name.toLowerCase().includes('price') ||
-        c.name.toLowerCase().includes('total')
-      );
-      if (amountCol) {
-        dataset.forEach((row, idx) => {
-          const amount = row[amountCol.name];
-          if (typeof amount === 'number' && amount < 0) {
-            test.issues.push(`Row ${idx + 1}: Negative amount ${amount}`);
-            test.score -= 5;
-          }
-        });
-      }
-      break;
-  }
-  
-  test.passed = test.score >= 90;
-  
-  return test;
-}
-
-function testRealism(dataset, schema, topicAnalysis) {
-  const test = {
-    name: 'Realism',
-    description: 'Dataset matches real-world clinical patterns',
-    passed: true,
-    score: 100,
-    issues: []
-  };
-  
-  // Get topic key from topicAnalysis
-  const topicKey = topicAnalysis?.topicKey || null;
-  
-  // Check 1: All-same values (indicates random failure)
-  schema.columns.forEach(col => {
-    if (col.isId || col.isTarget) return;
-    
-    const values = dataset.map(r => r[col.name]);
-    const uniqueValues = new Set(values);
-    
-    if (uniqueValues.size === 1 && values.length > 10) {
-      test.passed = false;
-      test.score -= 15;
-      test.issues.push(`${col.name}: All values identical (${values[0]}) - indicates random failure`);
-    }
-  });
-  
-  // Check 2: Reasonable variance in numeric columns
-  const numericCols = schema.columns.filter(c => c.dataType === 'int' || c.dataType === 'float');
-  numericCols.forEach(col => {
-    if (col.isId || col.isTarget || !col.range) return;
-    
-    const values = dataset.map(r => r[col.name]).filter(v => typeof v === 'number');
-    if (values.length === 0) return;
-    
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
-    const stdDev = Math.sqrt(variance);
-    const range = col.range[1] - col.range[0];
-    
-    if (stdDev < range * 0.01 && range > 50) {
-      test.score -= 10;
-      test.issues.push(`${col.name}: Very low variance (std=${stdDev.toFixed(2)})`);
-    }
-  });
-  
-  // Check 3: CLINICAL LOGIC VALIDATION (CRITICAL)
-  if (topicKey && hasClinicalRules(topicKey)) {
-    const clinicalResult = validateClinicalLogic(dataset, schema, topicKey);
-    
-    if (clinicalResult.violationRate > 0.3) {
-      test.passed = false;
-      test.score -= Math.min(40, clinicalResult.violationRate * 50);
-      test.issues.push(...clinicalResult.issues.slice(0, 5));
-    } else if (clinicalResult.violationRate > 0.15) {
-      test.score -= clinicalResult.violationRate * 30;
-      test.issues.push(...clinicalResult.issues.slice(0, 3));
-    }
-  }
-  
-  // Check 4: Correlation sanity (age vs related features)
-  validateAgeCorrelations(dataset, schema, test);
-  
-  if (test.score < 100) test.passed = false;
-  
-  return test;
-}
-
-function validateClinicalLogic(dataset, schema, topicKey) {
-  const result = {
-    violations: 0,
-    checked: 0,
-    issues: [],
-    violationRate: 0
-  };
-  
-  const strictRanges = CLINICAL_RULES[topicKey]?.strictRanges || {};
-  const targetCol = schema.columns.find(c => c.isTarget);
-  if (!targetCol) return result;
-  
-  dataset.forEach((row, idx) => {
-    const features = {};
-    schema.columns.forEach(col => {
-      if (!col.isTarget && !col.isId) {
-        features[col.name] = row[col.name];
-      }
-    });
-    
-    const targetValue = row[targetCol.name];
-    const diagnosis = evaluateClinicalRules(topicKey, features, strictRanges);
-    
-    result.checked++;
-    
-    if (diagnosis) {
-      if (diagnosis.targetValue !== targetValue) {
-        result.violations++;
-        if (result.issues.length < 10) {
-          result.issues.push(`Row ${idx + 1}: Clinical rule "${diagnosis.ruleName}" suggests ${diagnosis.targetValue}, but got ${targetValue}`);
-        }
-      }
-    }
-  });
-  
-  result.violationRate = result.checked > 0 ? result.violations / result.checked : 0;
-  
-  return result;
-}
-
-function validateAgeCorrelations(dataset, schema, test) {
-  const ageCol = schema.columns.find(c => c.name.toLowerCase().includes('age'));
-  if (!ageCol) return;
-  
-  const correlatedFeatures = {
-    'serum_cholesterol': { direction: 'positive', strength: 0.3 },
-    'resting_blood_pressure': { direction: 'positive', strength: 0.4 },
-    'maximum_heart_rate': { direction: 'negative', strength: -0.3 },
-    'bmi': { direction: 'positive', strength: 0.2 },
-    'glucose_concentration': { direction: 'positive', strength: 0.2 }
-  };
-  
-  for (const [featureName, expected] of Object.entries(correlatedFeatures)) {
-    const featureCol = schema.columns.find(c => c.name === featureName);
-    if (!featureCol) continue;
-    
-    const pairs = dataset
-      .map(r => ({ age: r[ageCol.name], value: r[featureName] }))
-      .filter(p => typeof p.age === 'number' && typeof p.value === 'number');
-    
-    if (pairs.length < 10) continue;
-    
-    const correlation = calculateCorrelation(
-      pairs.map(p => p.age),
-      pairs.map(p => p.value)
-    );
-    
-    if (expected.direction === 'positive' && correlation < -0.1) {
-      test.score -= 5;
-      test.issues.push(`${featureName}: Negative correlation with age (${correlation.toFixed(2)}) - unrealistic`);
-    }
-    
-    if (expected.direction === 'negative' && correlation > 0.1) {
-      test.score -= 5;
-      test.issues.push(`${featureName}: Positive correlation with age (${correlation.toFixed(2)}) - unrealistic`);
-    }
-  }
-}
-
-function calculateCorrelation(x, y) {
-  const n = x.length;
-  if (n === 0) return 0;
-  
-  const sumX = x.reduce((a, b) => a + b, 0);
-  const sumY = y.reduce((a, b) => a + b, 0);
-  const sumXY = x.reduce((total, xi, i) => total + xi * y[i], 0);
-  const sumX2 = x.reduce((a, b) => a + b * b, 0);
-  const sumY2 = y.reduce((a, b) => a + b * b, 0);
-  
-  const numerator = n * sumXY - sumX * sumY;
-  const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
-  
-  if (denominator === 0) return 0;
-  return numerator / denominator;
-}
-
-function calculateValidationScore(tests) {
+function calculateOverallScore(...validations) {
   const weights = {
-    'Schema Relevance': 0.15,
-    'Data Completeness': 0.15,
-    'Range Compliance': 0.15,
-    'Type Enforcement': 0.15,
-    'Uniqueness': 0.10,
-    'Target Distribution': 0.10,
-    'Domain Consistency': 0.10,
-    'Realism': 0.10
+    dataset: 0.5,
+    uniqueness: 0.25,
+    distribution: 0.25
   };
   
   let totalScore = 0;
   let totalWeight = 0;
   
-  tests.forEach(test => {
-    const weight = weights[test.name] || 0.1;
-    totalScore += test.score * weight;
+  validations.forEach((validation, index) => {
+    const weight = Object.values(weights)[index];
+    const score = validation.valid ? 100 : 0;
+    totalScore += score * weight;
     totalWeight += weight;
   });
   
-  return (totalScore / totalWeight);
+  return totalWeight > 0 ? totalScore / totalWeight : 0;
 }
 
-function createLog(event, data) {
-  return {
-    timestamp: new Date().toISOString(),
-    event,
-    data
-  };
-}
-
-module.exports = { process };
+module.exports = { 
+  process,
+  validateDataset,
+  validateRowFull,
+  validateFeatureUniqueness,
+  validateLabelDistribution,
+  validateLabelDerivation
+};
