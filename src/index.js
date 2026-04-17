@@ -108,26 +108,40 @@ async function run(topic, options = {}) {
   if (allRows.length === 0) {
     try {
       logger.info(`Searching HuggingFace for: ${topic}`);
-      const searchResults = await huggingfaceSource.search(topic);
       
-      if (searchResults && searchResults.length > 0) {
-        const sortedResults = searchResults
-          .filter(d => d.downloads > 5)
-          .sort((a, b) => b.downloads - a.downloads);
+      // Try multiple search variations
+      const searchTerms = [
+        topic.trim(),
+        topic.split(' ')[0], // first word only
+        topic.replace(/prediction|analysis|forecast/gi, '').trim()
+      ];
+      
+      for (const term of searchTerms) {
+        if (!term || term.length < 2) continue;
         
-        for (const dataset of sortedResults.slice(0, 30)) {
-          try {
-            const result = await huggingfaceSource.fetch(dataset.id, options);
-            
-            if (result && result.rows && result.rows.length > 0) {
-              allRows.push(...result.rows);
-              sourcesUsed[result.source] = { count: result.rows.length };
-              break;
+        const searchResults = await huggingfaceSource.search(term);
+        
+        if (searchResults && searchResults.length > 0) {
+          const sortedResults = searchResults
+            .filter(d => d.downloads > 5)
+            .sort((a, b) => b.downloads - a.downloads);
+          
+          for (const dataset of sortedResults.slice(0, 30)) {
+            try {
+              const result = await huggingfaceSource.fetch(dataset.id, options);
+              
+              if (result && result.rows && result.rows.length > 0) {
+                allRows.push(...result.rows);
+                sourcesUsed[result.source] = { count: result.rows.length };
+                break;
+              }
+            } catch {
+              // Try next dataset
             }
-          } catch {
-            // Try next dataset
           }
         }
+        
+        if (allRows.length > 0) break;
       }
     } catch {
       // Search failed
