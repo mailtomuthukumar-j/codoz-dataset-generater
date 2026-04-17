@@ -15,36 +15,55 @@ function formatDataset(dataset, format, options = {}) {
     return { content: '', filename: '', format };
   }
   
+  const cleanRows = rows.map(row => removeInternalFields(row));
+  
   let content;
   let filename;
   
   switch (format.toLowerCase()) {
     case 'json':
-      content = formatJSON(rows, options.pretty || true);
+      content = formatJSON(cleanRows, options.pretty || true);
       filename = `${sanitizeFilename(options.topic || 'dataset')}.json`;
       break;
     
     case 'csv':
-      content = formatCSV(rows);
+      content = formatCSV(cleanRows);
       filename = `${sanitizeFilename(options.topic || 'dataset')}.csv`;
       break;
     
     case 'jsonl':
-      content = formatJSONL(rows);
+      content = formatJSONL(cleanRows);
       filename = `${sanitizeFilename(options.topic || 'dataset')}.jsonl`;
       break;
     
     case 'tabular':
-      content = formatTabular(rows);
+      content = formatTabular(cleanRows);
       filename = `${sanitizeFilename(options.topic || 'dataset')}.txt`;
       break;
     
     default:
-      content = formatJSON(rows, true);
+      content = formatJSON(cleanRows, true);
       filename = `${sanitizeFilename(options.topic || 'dataset')}.json`;
   }
   
-  return { content, filename, format, rowCount: rows.length };
+  return { content, filename, format, rowCount: cleanRows.length };
+}
+
+function removeInternalFields(row) {
+  const internalFields = [
+    '_source', '_sourceId', 'source', 'sourceId', '_id', '__v',
+    '_derivation', 'derivation', 'derived', '_derived',
+    'id', 'row_id', 'index', '_index'
+  ];
+  const cleanRow = {};
+  
+  for (const [key, value] of Object.entries(row)) {
+    if (!internalFields.includes(key) && !key.startsWith('_')) {
+      cleanRow[key] = value;
+    }
+  }
+  
+  return cleanRow;
 }
 
 function formatJSON(rows, pretty = true) {
