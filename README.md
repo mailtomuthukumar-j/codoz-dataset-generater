@@ -34,14 +34,16 @@ npx codoz sources
 
 ## Datasets
 
+**Predefined datasets:**
 | Dataset | Sources |
 |---------|---------|
-| heart_disease | UCI, Kaggle |
-| diabetes | UCI, Kaggle |
+| heart_disease | UCI, Kaggle, HuggingFace |
+| diabetes | UCI, Kaggle, HuggingFace |
 | iris | UCI, HuggingFace |
 | wine | UCI |
-| student_performance | UCI, Kaggle |
-| breast_cancer | UCI, Kaggle |
+| breast_cancer | UCI, Kaggle, HuggingFace |
+
+**Dynamic search:** Any topic works - searches HuggingFace API automatically
 
 ## Configuration
 
