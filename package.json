@@ -1,5 +1,5 @@
 {
-  "name": "codoz",
+  "name": "codoz-data",
   "version": "2.0.0",
   "description": "CODOZ - Real Data Engine. Fetch real-world datasets from Kaggle, UCI, HuggingFace",
   "main": "src/index.js",
