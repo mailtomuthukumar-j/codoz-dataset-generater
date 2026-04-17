@@ -1,17 +1,35 @@
 [
   {
-    "file_name\tphrase": "Data/1249120_34824899_80106247.wav\ti have acne all over my face"
+    "topic": "medical",
+    "features": {
+      "data": "{\"file_name\\tphrase\":\"Data/1249120_34824899_80106247.wav\\ti have acne all over my face\"}"
+    },
+    "label": null,
+    "metadata": {
+      "source": "huggingface_api",
+      "timestamp": "2026-04-17T14:56:18.119Z"
+    }
   },
   {
-    "file_name\tphrase": "Data/1249120_43604449_107898973.wav\ti have a problem in seeing objects it is too difficult to see"
+    "topic": "medical",
+    "features": {
+      "data": "{\"file_name\\tphrase\":\"Data/1249120_43604449_107898973.wav\\ti have a problem in seeing objects it is too difficult to see\"}"
+    },
+    "label": null,
+    "metadata": {
+      "source": "huggingface_api",
+      "timestamp": "2026-04-17T14:56:18.121Z"
+    }
   },
   {
-    "file_name\tphrase": "Data/1249120_43719934_89749737.wav\ti cant sleep because of cough"
-  },
-  {
-    "file_name\tphrase": "Data/1249120_39142299_32213487.wav\ti have a very rash sensation close to my arms"
-  },
-  {
-    "file_name\tphrase": "Data/1249120_14353703_45949288.wav\ti feel a burning sensation in my guts about  hours after each meal."
+    "topic": "medical",
+    "features": {
+      "data": "{\"file_name\\tphrase\":\"Data/1249120_43719934_89749737.wav\\ti cant sleep because of cough\"}"
+    },
+    "label": null,
+    "metadata": {
+      "source": "huggingface_api",
+      "timestamp": "2026-04-17T14:56:18.121Z"
+    }
   }
 ]

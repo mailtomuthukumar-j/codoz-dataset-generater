@@ -1,0 +1,38 @@
+[
+  {
+    "topic": "health",
+    "features": {
+      "status": "Anxiety",
+      "text": "i don't understand whats wrong with me. i don't know why i freak out sometimes. like right now i'm j"
+    },
+    "label": null,
+    "metadata": {
+      "source": "huggingface_api",
+      "timestamp": "2026-04-17T14:53:01.694Z"
+    }
+  },
+  {
+    "topic": "health",
+    "features": {
+      "status": "Anxiety",
+      "text": "usually when i have anxiety just chatting with someone or just having someone to physically be there"
+    },
+    "label": null,
+    "metadata": {
+      "source": "huggingface_api",
+      "timestamp": "2026-04-17T14:53:01.696Z"
+    }
+  },
+  {
+    "topic": "health",
+    "features": {
+      "status": "Anxiety",
+      "text": "well, i've had anxiety and panic syndrome for a few years. it all started in my school back in 2014,"
+    },
+    "label": null,
+    "metadata": {
+      "source": "huggingface_api",
+      "timestamp": "2026-04-17T14:53:01.696Z"
+    }
+  }
+]
