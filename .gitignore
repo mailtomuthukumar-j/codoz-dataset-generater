@@ -5,3 +5,5 @@ codoz-dataset/
 __pycache__/
 .DS_Store
 *.log
+.codoz_cache/
+codoz_set/
