@@ -43,11 +43,20 @@ npx codoz sources
 | student_performance | UCI, Kaggle |
 | breast_cancer | UCI, Kaggle |
 
-## API Key (Optional)
+## Configuration
 
-Create `.env` file:
-```
-HUGGINGFACE_API_KEY=your_key_here
+Create `.env` file in project root with all API keys:
+
+```bash
+# Kaggle (from https://www.kaggle.com/account)
+KAGGLE_USERNAME=your_username
+KAGGLE_KEY=your_api_key
+
+# HuggingFace (from https://huggingface.co/settings/tokens)
+HUGGINGFACE_API_KEY=your_token
+
+# Data.gov (from https://api.data.gov)
+DATA_GOV_API_KEY=your_key
 ```
 
 ## Programmatic
