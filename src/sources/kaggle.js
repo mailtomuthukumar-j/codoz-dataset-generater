@@ -55,14 +55,45 @@ async function fetch(slug, options = {}) {
       }
     );
     
-    const files = metadataResponse.data.files || [];
-    const csvFile = files.find(f => f.name.endsWith('.csv')) || files[0];
-    
-    if (!csvFile) {
-      throw new Error('No CSV file found in dataset');
+    let files = [];
+    if (metadataResponse.data.files && metadataResponse.data.files.length > 0) {
+      files = metadataResponse.data.files;
+    } else if (metadataResponse.data.versions && metadataResponse.data.versions.length > 0) {
+      const latestVersion = metadataResponse.data.versions[0];
+      if (latestVersion.files) {
+        files = latestVersion.files;
+      }
     }
     
-    const downloadUrl = `https://www.kaggle.com/api/v1/datasets/download/${owner}/${name}?file=${csvFile.name}`;
+    let csvFile = files.length > 0 ? files.find(f => (f.name || f).endsWith('.csv')) || files[0] : null;
+    
+    if (!csvFile && files.length === 0) {
+      const downloadUrl = `https://www.kaggle.com/api/v1/datasets/download/${owner}/${name}`;
+      const downloadResponse = await axios.get(downloadUrl, {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`${creds.username}:${creds.key}`).toString('base64')}`
+        },
+        responseType: 'arraybuffer',
+        timeout: 120000
+      });
+      
+      const csvContent = await parseDownload(downloadResponse.data, `${slug}.zip`);
+      const rows = parseCSV(csvContent);
+      
+      logger.info(`Kaggle: Fetched ${rows.length} rows from ${slug}`);
+      
+      return {
+        rows,
+        source: 'kaggle',
+        datasetName: slug,
+        fileName: slug,
+        rowCount: rows.length
+      };
+    }
+    
+    const csvFileName = typeof csvFile === 'string' ? csvFile : csvFile.name;
+    
+    const downloadUrl = `https://www.kaggle.com/api/v1/datasets/download/${owner}/${name}?file=${csvFileName}`;
     
     const downloadResponse = await axios.get(downloadUrl, {
       headers: {
@@ -72,7 +103,7 @@ async function fetch(slug, options = {}) {
       timeout: 120000
     });
     
-    const csvContent = await parseDownload(downloadResponse.data, csvFile.name);
+    const csvContent = await parseDownload(downloadResponse.data, csvFileName);
     const rows = parseCSV(csvContent);
     
     logger.info(`Kaggle: Fetched ${rows.length} rows from ${slug}`);
@@ -81,7 +112,7 @@ async function fetch(slug, options = {}) {
       rows,
       source: 'kaggle',
       datasetName: slug,
-      fileName: csvFile.name,
+      fileName: csvFileName,
       rowCount: rows.length
     };
   } catch (error) {
