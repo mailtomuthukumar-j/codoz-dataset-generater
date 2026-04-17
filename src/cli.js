@@ -81,7 +81,7 @@ async function main() {
 
   } catch (error) {
     if (error.message.includes('No data available')) {
-      console.log('Invalid topic or no data available. Run "npx codoz-data topics" for valid topics.');
+      console.log('No tabular data found for this topic. Try a different topic.');
     } else {
       console.log('Something went wrong');
     }

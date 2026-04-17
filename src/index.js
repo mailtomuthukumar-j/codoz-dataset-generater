@@ -26,9 +26,10 @@ async function run(topic, options = {}) {
   const topicInfo = domainDetector.detectDomain(topic);
   const sourceInfo = sourceFinder.findBestSources(topicInfo);
   
-  const allRows = [];
+  let allRows = [];
   const sourcesUsed = {};
   
+  // Try predefined sources first
   for (const src of sourceInfo.recommended) {
     try {
       let result = null;
@@ -49,20 +50,59 @@ async function run(topic, options = {}) {
       }
     } catch (error) {
       // Skip failed sources silently in silent mode
-      if (!silent) {
-        logger.warn(`Failed to fetch from ${src.source}: ${error.message}`);
+    }
+  }
+  
+  // If no data from predefined sources, try dynamic search on HuggingFace
+  if (allRows.length === 0) {
+    try {
+      const searchQueries = [
+        topic,
+        topic + ' dataset',
+        topic + ' csv',
+        topic + ' classification',
+        topic + ' tabular'
+      ];
+      
+      for (const query of searchQueries) {
+        const searchResults = await huggingfaceSource.search(query);
+        
+        if (searchResults && searchResults.length > 0) {
+          // Try to fetch from first matching dataset with downloads
+          const sortedResults = searchResults
+            .filter(d => d.downloads > 100)
+            .sort((a, b) => b.downloads - a.downloads);
+          
+          for (const dataset of sortedResults.slice(0, 10)) {
+            try {
+              const result = await huggingfaceSource.fetch(dataset.id, options);
+              
+              if (result && result.rows && result.rows.length > 0) {
+                allRows.push(...result.rows);
+                sourcesUsed[result.source] = { count: result.rows.length };
+                break;
+              }
+            } catch {
+              // Try next dataset
+            }
+          }
+          
+          if (allRows.length > 0) break;
+        }
       }
+    } catch {
+      // Search failed
     }
   }
   
   if (allRows.length === 0) {
-    throw new Error('No data available from any source');
+    throw new Error('No data available for this topic');
   }
   
   const sampledRows = allRows.slice(0, size);
   
   const formatted = formatter.formatDataset({ rows: sampledRows }, format, {
-    topic,
+    topic: topic.replace(/\s+/g, '_'),
     pretty: true
   });
   
