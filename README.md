@@ -11,8 +11,14 @@ npm install
 ## Use
 
 ```bash
-# Fetch dataset
+# Interactive mode (prompts for topic, size, format)
+npx codoz
+
+# Quick fetch
 npx codoz heart_disease --size 100
+
+# With format
+npx codoz diabetes --size 50 --format csv
 
 # List datasets
 npx codoz topics
