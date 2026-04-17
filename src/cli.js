@@ -80,7 +80,11 @@ async function main() {
     console.log(`Data saved to: ${result.output.filepath}`);
 
   } catch (error) {
-    console.log('Something went wrong');
+    if (error.message.includes('No data available')) {
+      console.log('Invalid topic or no data available. Run "npx codoz-data topics" for valid topics.');
+    } else {
+      console.log('Something went wrong');
+    }
     rl.close();
     process.exit(1);
   }
