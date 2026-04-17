@@ -13,6 +13,7 @@ const huggingfaceSource = require('./sources/huggingface');
 const dataGovSource = require('./sources/dataGov');
 const logger = require('./utils/logger');
 const { setLevel } = logger;
+const cache = require('./utils/cache');
 
 // Predefined topics - return real data
 const PREDEFINED_TOPICS = [
@@ -29,12 +30,46 @@ function isPredefinedTopic(topic) {
 }
 
 async function run(topic, options = {}) {
-  const { size = 100, format = 'json', silent = false, debug = false } = options;
+  const { size = 100, format = 'json', silent = false, debug = false, noCache = false } = options;
   
   if (silent) {
     setLevel('silent');
   } else if (debug) {
     setLevel('debug');
+  }
+  
+  // Check cache first
+  const cacheKey = cache.getCacheKey(topic, size);
+  if (!noCache) {
+    const cachedRows = cache.get(cacheKey);
+    if (cachedRows && cachedRows.length > 0) {
+      const finalRows = cachedRows.slice(0, size);
+      const formatted = formatter.formatDataset({ rows: finalRows }, format, {
+        topic: topic.replace(/\s+/g, '_'),
+        pretty: true
+      });
+      const saved = formatter.saveToFile(formatted.content, formatted.filename, { format });
+      
+      if (!silent) {
+        console.log('\n╔══════════════════════════════════════════════════════════╗');
+        console.log('║              FETCH COMPLETE (Cached)                     ║');
+        console.log('╚══════════════════════════════════════════════════════════╝');
+        console.log(`\n  Output: ${saved.filepath}`);
+        console.log(`  Rows: ${finalRows.length}`);
+        console.log(`  Format: ${format}`);
+        console.log('');
+      }
+      
+      return {
+        success: true,
+        output: saved,
+        rowCount: finalRows.length,
+        format,
+        qualityScore: 100,
+        data: finalRows,
+        sources: { cached: { count: finalRows.length } }
+      };
+    }
   }
   
   const isPredefined = isPredefinedTopic(topic);
@@ -112,6 +147,11 @@ async function run(topic, options = {}) {
   }
   
   const finalRows = allRows.slice(0, size);
+  
+  // Cache the results
+  if (allRows.length > 0 && !noCache) {
+    cache.set(cacheKey, allRows);
+  }
   
   const formatted = formatter.formatDataset({ rows: finalRows }, format, {
     topic: topic.replace(/\s+/g, '_'),

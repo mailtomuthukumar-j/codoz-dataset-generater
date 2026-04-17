@@ -31,27 +31,5 @@
     "Volume": "3471.0",
     "OpenInterest": "",
     "Ticker": "BANKNIFTY"
-  },
-  {
-    "date": "2017-05-02",
-    "time": "12:00",
-    "Open": "22316.2",
-    "High": "22372.1",
-    "Low": "22300.6",
-    "Close": "22356.3",
-    "Volume": "3475.0",
-    "OpenInterest": "",
-    "Ticker": "BANKNIFTY"
-  },
-  {
-    "date": "2017-05-02",
-    "time": "13:00",
-    "Open": "22355.7",
-    "High": "22386.1",
-    "Low": "22321.0",
-    "Close": "22343.9",
-    "Volume": "3407.0",
-    "OpenInterest": "",
-    "Ticker": "BANKNIFTY"
   }
 ]
