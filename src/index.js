@@ -104,38 +104,29 @@ async function run(topic, options = {}) {
     }
   }
   
-  // If no data from predefined sources, try dynamic search on HuggingFace
+// If no data from predefined sources, try dynamic search on HuggingFace
   if (allRows.length === 0) {
     try {
-      const searchQueries = [
-        topic,
-        topic + ' dataset',
-        topic + ' data'
-      ];
+      logger.info(`Searching HuggingFace for: ${topic}`);
+      const searchResults = await huggingfaceSource.search(topic);
       
-      for (const query of searchQueries) {
-        const searchResults = await huggingfaceSource.search(query);
+      if (searchResults && searchResults.length > 0) {
+        const sortedResults = searchResults
+          .filter(d => d.downloads > 5)
+          .sort((a, b) => b.downloads - a.downloads);
         
-        if (searchResults && searchResults.length > 0) {
-          const sortedResults = searchResults
-            .filter(d => d.downloads > 10)
-            .sort((a, b) => b.downloads - a.downloads);
-          
-          for (const dataset of sortedResults.slice(0, 50)) {
-            try {
-              const result = await huggingfaceSource.fetch(dataset.id, options);
-              
-              if (result && result.rows && result.rows.length > 0) {
-                allRows.push(...result.rows);
-                sourcesUsed[result.source] = { count: result.rows.length };
-                break;
-              }
-            } catch {
-              // Try next dataset
+        for (const dataset of sortedResults.slice(0, 30)) {
+          try {
+            const result = await huggingfaceSource.fetch(dataset.id, options);
+            
+            if (result && result.rows && result.rows.length > 0) {
+              allRows.push(...result.rows);
+              sourcesUsed[result.source] = { count: result.rows.length };
+              break;
             }
+          } catch {
+            // Try next dataset
           }
-          
-          if (allRows.length > 0) break;
         }
       }
     } catch {
@@ -143,7 +134,7 @@ async function run(topic, options = {}) {
     }
   }
   
-if (allRows.length === 0) {
+  if (allRows.length === 0) {
     throw new Error('No data available for this topic');
   }
 
