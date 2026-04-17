@@ -11,15 +11,18 @@ const { generateDomainRow } = require('./domain-rules-engine');
 const KNOWN_PUBLIC_DATASETS = {
   heart_disease: [
     { source: 'uci', id: 'heart-disease', url: 'https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/cleveland.data' },
-    { source: 'kaggle', slug: 'andrewmvd/heart-failure-clinical-data' }
+    { source: 'kaggle', slug: 'andrewmvd/heart-failure-clinical-data' },
+    { source: 'kaggle', slug: 'fedesoriano/heart-failure-prediction' }
   ],
   diabetes: [
     { source: 'uci', id: 'pima-indians-diabetes', url: 'https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv' },
-    { source: 'kaggle', slug: 'uciml/pima-indians-diabetes-database' }
+    { source: 'kaggle', slug: 'uciml/pima-indians-diabetes-database' },
+    { source: 'huggingface', id: 'scikit-learn/diabetes' }
   ],
   breast_cancer: [
     { source: 'uci', id: 'breast-cancer-wisconsin', url: 'https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data' },
-    { source: 'kaggle', slug: 'uciml/breast-cancer-wisconsin-data' }
+    { source: 'kaggle', slug: 'uciml/breast-cancer-wisconsin-data' },
+    { source: 'huggingface', id: 'scikit-learn/breast_cancer' }
   ],
   customer_churn: [
     { source: 'kaggle', slug: 'blastchar/telco-customer-churn' }
@@ -37,9 +40,12 @@ const KNOWN_PUBLIC_DATASETS = {
     { source: 'kaggle', slug: 'stripathy/main-student-performance' },
     { source: 'uci', id: 'student-performance' }
   ],
+  liver_disease: [
+    { source: 'kaggle', slug: 'uciml/indian-liver-patient-dataset' }
+  ],
   iris: [
     { source: 'uci', id: 'iris', url: 'https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data' },
-    { source: 'huggingface', id: 'iris' }
+    { source: 'huggingface', id: 'scikit-learn/iris' }
   ],
   wine: [
     { source: 'uci', id: 'wine', url: 'https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data' }
