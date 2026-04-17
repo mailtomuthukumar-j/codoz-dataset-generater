@@ -9,6 +9,7 @@ const nodeFs = require('fs');
 const nodeOs = require('os');
 const logger = require('../utils/logger');
 const { isKaggleAvailable } = require('../utils/env');
+const { retry } = require('../utils/retry');
 
 function isAvailable() {
   return isKaggleAvailable();
@@ -36,13 +37,14 @@ function getCredentials() {
 }
 
 async function fetch(slug, options = {}) {
+  const { rows: targetRows = 100, retries = 2 } = options;
   const creds = getCredentials();
   
   if (!creds) {
     throw new Error('Kaggle credentials not found. Set KAGGLE_USERNAME and KAGGLE_KEY env vars or place kaggle.json in ~/.kaggle/');
   }
   
-  try {
+  return retry(async () => {
     const [owner, name] = slug.split('/');
     
     const metadataResponse = await axios.get(
@@ -78,7 +80,11 @@ async function fetch(slug, options = {}) {
       });
       
       const csvContent = await parseDownload(downloadResponse.data, `${slug}.zip`);
-      const rows = parseCSV(csvContent);
+      let rows = parseCSV(csvContent);
+      
+      if (rows.length > targetRows) {
+        rows = rows.slice(0, targetRows);
+      }
       
       logger.info(`Kaggle: Fetched ${rows.length} rows from ${slug}`);
       
@@ -104,7 +110,11 @@ async function fetch(slug, options = {}) {
     });
     
     const csvContent = await parseDownload(downloadResponse.data, csvFileName);
-    const rows = parseCSV(csvContent);
+    let rows = parseCSV(csvContent);
+    
+    if (rows.length > targetRows) {
+      rows = rows.slice(0, targetRows);
+    }
     
     logger.info(`Kaggle: Fetched ${rows.length} rows from ${slug}`);
     
@@ -115,10 +125,13 @@ async function fetch(slug, options = {}) {
       fileName: csvFileName,
       rowCount: rows.length
     };
-  } catch (error) {
-    logger.error(`Kaggle fetch error: ${error.message}`);
-    throw error;
-  }
+  }, {
+    maxRetries: retries,
+    initialDelay: 2000,
+    onRetry: (attempt, max, error, delay) => {
+      logger.warn(`Kaggle retry ${attempt}/${max} for ${slug}: ${error}. Waiting ${delay}ms...`);
+    }
+  });
 }
 
 async function parseDownload(buffer, filename) {

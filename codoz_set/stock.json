@@ -1,40 +1,57 @@
 [
   {
-    "topic": "stock",
-    "features": {
-      "ticker": "BANKNIFTY",
-      "openinterest": "",
-      "volume": 2683,
-      "close": 22475.8,
-      "low": 22378.4,
-      "high": 22492.2,
-      "open": 22412.6,
-      "time": 9,
-      "date": 2017
-    },
-    "label": null,
-    "metadata": {
-      "source": "huggingface_api",
-      "timestamp": "2026-04-17T14:58:56.819Z"
-    }
+    "date": "2017-05-02",
+    "time": "09:00",
+    "Open": "22412.6",
+    "High": "22492.2",
+    "Low": "22378.4",
+    "Close": "22475.8",
+    "Volume": "2683.0",
+    "OpenInterest": "",
+    "Ticker": "BANKNIFTY"
   },
   {
-    "topic": "stock",
-    "features": {
-      "ticker": "BANKNIFTY",
-      "openinterest": "",
-      "volume": 3521,
-      "close": 22320.9,
-      "low": 22266.2,
-      "high": 22475.8,
-      "open": 22474.1,
-      "time": 10,
-      "date": 2017
-    },
-    "label": null,
-    "metadata": {
-      "source": "huggingface_api",
-      "timestamp": "2026-04-17T14:58:56.820Z"
-    }
+    "date": "2017-05-02",
+    "time": "10:00",
+    "Open": "22474.1",
+    "High": "22475.8",
+    "Low": "22266.2",
+    "Close": "22320.9",
+    "Volume": "3521.0",
+    "OpenInterest": "",
+    "Ticker": "BANKNIFTY"
+  },
+  {
+    "date": "2017-05-02",
+    "time": "11:00",
+    "Open": "22321.4",
+    "High": "22334.1",
+    "Low": "22270.3",
+    "Close": "22316.4",
+    "Volume": "3471.0",
+    "OpenInterest": "",
+    "Ticker": "BANKNIFTY"
+  },
+  {
+    "date": "2017-05-02",
+    "time": "12:00",
+    "Open": "22316.2",
+    "High": "22372.1",
+    "Low": "22300.6",
+    "Close": "22356.3",
+    "Volume": "3475.0",
+    "OpenInterest": "",
+    "Ticker": "BANKNIFTY"
+  },
+  {
+    "date": "2017-05-02",
+    "time": "13:00",
+    "Open": "22355.7",
+    "High": "22386.1",
+    "Low": "22321.0",
+    "Close": "22343.9",
+    "Volume": "3407.0",
+    "OpenInterest": "",
+    "Ticker": "BANKNIFTY"
   }
 ]

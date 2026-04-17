@@ -6,6 +6,7 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 const { isHuggingFaceAvailable } = require('../utils/env');
+const { retry } = require('../utils/retry');
 
 function isAvailable() {
   return isHuggingFaceAvailable();
@@ -24,11 +25,11 @@ function getHeaders() {
 }
 
 async function fetch(datasetId, options = {}) {
-  const { rows: targetRows = 100 } = options;
+  const { rows: targetRows = 100, retries = 2 } = options;
   
-  try {
-    const [owner, name] = datasetId.includes('/') ? datasetId.split('/') : ['unknown', datasetId];
-    
+  const [owner, name] = datasetId.includes('/') ? datasetId.split('/') : ['unknown', datasetId];
+  
+  return retry(async () => {
     const info = await getDatasetInfo(owner, name);
     
     if (!info) {
@@ -46,10 +47,13 @@ async function fetch(datasetId, options = {}) {
       datasetName: info.id,
       rowCount: rows.length
     };
-  } catch (error) {
-    logger.error(`HuggingFace fetch error: ${error.message}`);
-    throw error;
-  }
+  }, {
+    maxRetries: retries,
+    initialDelay: 1500,
+    onRetry: (attempt, max, error, delay) => {
+      logger.warn(`HuggingFace retry ${attempt}/${max} for ${datasetId}: ${error}. Waiting ${delay}ms...`);
+    }
+  });
 }
 
 async function getDatasetInfo(owner, name) {

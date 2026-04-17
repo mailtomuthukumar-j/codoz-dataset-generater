@@ -40,7 +40,19 @@ async function main() {
         console.log(`Data saved to: ${result.output.filepath}`);
         return;
       } catch (error) {
-        console.log('Something went wrong');
+        const errorMsg = error.message || '';
+        
+        if (errorMsg.includes('No data available') || errorMsg.includes('No tabular data')) {
+          console.log('No data found. Try: iris, diabetes, heart_disease, stock, medical');
+        } else if (errorMsg.includes('credentials') || errorMsg.includes('API key')) {
+          console.log('Set HUGGINGFACE_API_KEY in .env');
+        } else if (errorMsg.includes('timeout')) {
+          console.log('Connection timeout. Check internet');
+        } else if (errorMsg.includes('not found')) {
+          console.log('Dataset not found');
+        } else {
+          console.log('Something went wrong');
+        }
         process.exit(1);
       }
     }
@@ -80,10 +92,18 @@ async function main() {
     console.log(`Data saved to: ${result.output.filepath}`);
 
   } catch (error) {
-    if (error.message.includes('No data available')) {
-      console.log('No tabular data found for this topic. Try a different topic.');
+    const errorMsg = error.message || '';
+    
+    if (errorMsg.includes('No data available') || errorMsg.includes('No tabular data')) {
+      console.log('No data found for this topic. Try: iris, diabetes, heart_disease, stock, medical');
+    } else if (errorMsg.includes('credentials') || errorMsg.includes('API key')) {
+      console.log('API key missing. Set HUGGINGFACE_API_KEY in .env file');
+    } else if (errorMsg.includes('timeout') || errorMsg.includes('ETIMEDOUT')) {
+      console.log('Connection timeout. Check your internet and try again');
+    } else if (errorMsg.includes('not found') || errorMsg.includes('404')) {
+      console.log('Dataset not found. Try a different topic');
     } else {
-      console.log('Something went wrong');
+      console.log('Something went wrong. Try again');
     }
     rl.close();
     process.exit(1);
