@@ -17,7 +17,9 @@ const { setLevel } = logger;
 async function run(topic, options = {}) {
   const { size = 100, format = 'json', silent = false, debug = false } = options;
   
-  if (debug) {
+  if (silent) {
+    setLevel('silent');
+  } else if (debug) {
     setLevel('debug');
   }
   
