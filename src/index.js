@@ -7,6 +7,7 @@ const domainDetector = require('./core/domain-detector');
 const sourceFinder = require('./core/source-finder');
 const fetcher = require('./core/fetcher');
 const formatter = require('./core/formatter');
+const schemaMapper = require('./core/schema-mapper');
 const uciSource = require('./sources/uci');
 const kaggleSource = require('./sources/kaggle');
 const huggingfaceSource = require('./sources/huggingface');
@@ -142,11 +143,16 @@ async function run(topic, options = {}) {
     }
   }
   
-  if (allRows.length === 0) {
+if (allRows.length === 0) {
     throw new Error('No data available for this topic');
   }
+
+  let finalRows = allRows.slice(0, size);
   
-  const finalRows = allRows.slice(0, size);
+  // Apply schema mapping for predefined datasets
+  if (isPredefined) {
+    finalRows = schemaMapper.mapDataset(topic, finalRows);
+  }
   
   // Cache the results
   if (allRows.length > 0 && !noCache) {

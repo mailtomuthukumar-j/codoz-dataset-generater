@@ -396,6 +396,24 @@ function getAllSchemaInfo(datasetId) {
   };
 }
 
+function mapDataset(datasetId, rows) {
+  if (!rows || rows.length === 0) return rows;
+  
+  const mapping = getSchemaMapping(datasetId);
+  if (!mapping || !mapping.columnMapping) {
+    return rows;
+  }
+  
+  return rows.map(row => {
+    const mappedRow = {};
+    for (const [key, value] of Object.entries(row)) {
+      const newKey = mapping.columnMapping[key] || key;
+      mappedRow[newKey] = value;
+    }
+    return mappedRow;
+  });
+}
+
 module.exports = {
   SCHEMA_MAPPINGS,
   isGenericColumnName,
@@ -405,5 +423,6 @@ module.exports = {
   getProperColumnName,
   getColumnDescription,
   getConstraints,
-  getAllSchemaInfo
+  getAllSchemaInfo,
+  mapDataset
 };

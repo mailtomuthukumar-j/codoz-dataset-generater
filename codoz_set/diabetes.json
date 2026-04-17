@@ -31,27 +31,5 @@
     "DiabetesPedigreeFunction": "0.672",
     "Age": "32",
     "Outcome": "1"
-  },
-  {
-    "Pregnancies": "1",
-    "Glucose": "89",
-    "BloodPressure": "66",
-    "SkinThickness": "23",
-    "Insulin": "94",
-    "BMI": "28.1",
-    "DiabetesPedigreeFunction": "0.167",
-    "Age": "21",
-    "Outcome": "0"
-  },
-  {
-    "Pregnancies": "0",
-    "Glucose": "137",
-    "BloodPressure": "40",
-    "SkinThickness": "35",
-    "Insulin": "168",
-    "BMI": "43.1",
-    "DiabetesPedigreeFunction": "2.288",
-    "Age": "33",
-    "Outcome": "1"
   }
 ]
