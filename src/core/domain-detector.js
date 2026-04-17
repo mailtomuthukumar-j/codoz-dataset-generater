@@ -71,68 +71,12 @@ const TOPIC_MAPPINGS = {
     huggingfaceIds: ['scikit-learn/breast_cancer'],
     searchTerms: ['breast cancer tumor diagnosis']
   },
-  kidney_disease: {
-    domainFamily: 'medical',
-    kaggleSlugs: ['imadtasleem/ckd-dataset', 'nih-chest-xrays/kaggle'],
-    uciIds: ['chronic-kidney-disease'],
-    huggingfaceIds: [],
-    searchTerms: ['chronic kidney disease renal']
-  },
-  liver_disease: {
-    domainFamily: 'medical',
-    kaggleSlugs: ['uciml/indian-liver-patient-dataset', 'mearnsandrew/ilpd-indian-liver-patient-dataset'],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['liver disease patient']
-  },
-  loan_default: {
-    domainFamily: 'financial',
-    kaggleSlugs: ['laotse/credit-risk-dataset', 'kaggle/h-and-m-personal-fashion-dataset'],
-    huggingfaceIds: [],
-    searchTerms: ['loan default credit risk']
-  },
-  credit_card_fraud: {
-    domainFamily: 'financial',
-    kaggleSlugs: ['mlg-ulb/creditcardfraud', 'nelgiriyewithana/credit-card-fraud-detection'],
-    huggingfaceIds: [],
-    searchTerms: ['credit card fraud transaction']
-  },
-  employee_attrition: {
-    domainFamily: 'hr',
-    kaggleSlugs: ['pavansubhasht/ibm-hr-analytics-attrition-dataset', 'rfree456/employee-attrition'],
-    huggingfaceIds: [],
-    searchTerms: ['employee attrition hr']
-  },
-  customer_churn: {
-    domainFamily: 'ecommerce',
-    kaggleSlugs: ['blastchar/telco-customer-churn', 'binuthomas/telco-customer-churn-prediction'],
-    huggingfaceIds: [],
-    searchTerms: ['telecom customer churn']
-  },
-  student_performance: {
-    domainFamily: 'education',
-    kaggleSlugs: ['stripathy/main-student-performance', 'dev3806/student-performance-data'],
-    uciIds: ['student-performance'],
-    huggingfaceIds: [],
-    searchTerms: ['student academic performance education']
-  },
-  fake_news_detection: {
-    domainFamily: 'nlp_classification',
-    kaggleSlugs: ['clic02/fake-news', 'raj89323/fake_news_detection'],
-    huggingfaceIds: ['mteb/fake-news', 'google/fake-news-contraction'],
-    searchTerms: ['fake news detection']
-  },
-  intent_classification: {
-    domainFamily: 'nlp_classification',
-    kaggleSlugs: ['karthiknalam/chatbot-intent-detection', 'mohammadi/intent-classification'],
-    huggingfaceIds: ['clinc/oos', 'snips-ai/contextual-speech-recognition'],
-    searchTerms: ['intent classification chatbot']
-  },
-  traffic_congestion: {
-    domainFamily: 'transport',
-    kaggleSlugs: ['sobhanmoosavi/u-s-traffic-predictor', 'nikhilbhartiya/traffic-prediction'],
-    huggingfaceIds: [],
-    searchTerms: ['traffic congestion']
+  iris_flower: {
+    domainFamily: 'general',
+    kaggleSlugs: [],
+    uciIds: ['iris'],
+    huggingfaceIds: ['scikit-learn/iris'],
+    searchTerms: ['iris flower classification']
   },
   iris: {
     domainFamily: 'general',
@@ -141,6 +85,13 @@ const TOPIC_MAPPINGS = {
     huggingfaceIds: ['scikit-learn/iris'],
     searchTerms: ['iris flower classification']
   },
+  wine_quality: {
+    domainFamily: 'general',
+    kaggleSlugs: [],
+    uciIds: ['wine'],
+    huggingfaceIds: [],
+    searchTerms: ['wine classification quality']
+  },
   wine: {
     domainFamily: 'general',
     kaggleSlugs: [],
@@ -148,281 +99,144 @@ const TOPIC_MAPPINGS = {
     huggingfaceIds: [],
     searchTerms: ['wine classification']
   },
-  // Medical Domain Extensions
-  liver_disease: {
-    domainFamily: 'medical',
-    kaggleSlugs: ['mexwell/frequency-data-for-liver-disorder'],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['liver disease patient']
-  },
-  kidney_failure: {
-    domainFamily: 'medical',
-    kaggleSlugs: ['imadtasleem/ckd-dataset'],
-    uciIds: ['chronic-kidney-disease'],
-    huggingfaceIds: [],
-    searchTerms: ['kidney failure chronic disease']
-  },
-  cancer_survival: {
-    domainFamily: 'medical',
-    kaggleSlugs: ['cancer survival dataset'],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['cancer survival prediction']
-  },
-  blood_pressure_risk: {
-    domainFamily: 'medical',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['blood pressure hypertension']
-  },
-  stroke_prediction: {
-    domainFamily: 'medical',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['stroke prediction']
-  },
-  // Financial Domain Extensions
-  income_classification: {
-    domainFamily: 'financial',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['income level classification']
-  },
-  stock_trend: {
-    domainFamily: 'financial',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['stock price prediction']
-  },
-  insurance_claim: {
-    domainFamily: 'financial',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['insurance claim approval']
-  },
-  spending_behavior: {
-    domainFamily: 'financial',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['spending behavior classification']
-  },
-  investment_risk: {
-    domainFamily: 'financial',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['investment risk profiling']
-  },
-  // E-commerce Domain Extensions
-  product_rating: {
-    domainFamily: 'ecommerce',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['product rating prediction']
-  },
-  order_cancellation: {
-    domainFamily: 'ecommerce',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['order cancellation prediction']
-  },
-  delivery_delay: {
-    domainFamily: 'ecommerce',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['delivery delay prediction']
-  },
-  cart_abandonment: {
-    domainFamily: 'ecommerce',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['shopping cart abandonment']
-  },
-  seller_performance: {
-    domainFamily: 'ecommerce',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['seller performance evaluation']
-  },
-  customer_lifetime_value: {
-    domainFamily: 'ecommerce',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['customer lifetime value']
-  },
-  // Education Domain Extensions
-  exam_failure: {
+  student_performance: {
     domainFamily: 'education',
+    kaggleSlugs: ['stripathy/main-student-performance', 'dev3806/student-performance-data'],
+    uciIds: ['student-performance'],
+    huggingfaceIds: [],
+    searchTerms: ['student academic performance education']
+  },
+  house_price_prediction: {
+    domainFamily: 'financial',
+    kaggleSlugs: ['muthukrishnan002/house-price-prediction-uci-dataset'],
+    uciIds: [],
+    huggingfaceIds: ['scikit-learn/california_housing'],
+    searchTerms: ['house price prediction real estate']
+  },
+  stock_market_data: {
+    domainFamily: 'financial',
+    kaggleSlugs: ['ramrajrajpal/nyse-stock-data'],
+    uciIds: [],
+    huggingfaceIds: ['rajaharyard/nyse-stock-data'],
+    searchTerms: ['stock market data finance']
+  },
+  stock: {
+    domainFamily: 'financial',
+    kaggleSlugs: ['ramrajrajpal/nyse-stock-data'],
+    uciIds: [],
+    huggingfaceIds: ['rajaharyard/nyse-stock-data'],
+    searchTerms: ['stock market data finance']
+  },
+  bank_loan_approval: {
+    domainFamily: 'financial',
+    kaggleSlugs: ['laotse/credit-risk-dataset'],
+    uciIds: [],
+    huggingfaceIds: [],
+    searchTerms: ['bank loan approval credit']
+  },
+  credit_card_fraud: {
+    domainFamily: 'financial',
+    kaggleSlugs: ['mlg-ulb/creditcardfraud', 'nelgiriyewithana/credit-card-fraud-detection'],
+    huggingfaceIds: [],
+    searchTerms: ['credit card fraud transaction']
+  },
+  customer_churn: {
+    domainFamily: 'ecommerce',
+    kaggleSlugs: ['blastchar/telco-customer-churn', 'binuthomas/telco-customer-churn-prediction'],
+    huggingfaceIds: [],
+    searchTerms: ['telecom customer churn']
+  },
+  sales_forecasting: {
+    domainFamily: 'ecommerce',
+    kaggleSlugs: ['utkarshthaker/store-item-demand-forecasting'],
+    uciIds: [],
+    huggingfaceIds: [],
+    searchTerms: ['sales forecasting demand']
+  },
+  weather_prediction: {
+    domainFamily: 'weather',
+    kaggleSlugs: [],
+    uciIds: [],
+    huggingfaceIds: ['openvax/weather'],
+    searchTerms: ['weather prediction climate']
+  },
+  cryptocurrency_price: {
+    domainFamily: 'financial',
+    kaggleSlugs: [],
+    uciIds: [],
+    huggingfaceIds: ['arthurneuron/cryptocurrency-futures-ohlcv-dataset-1m'],
+    searchTerms: ['cryptocurrency price bitcoin']
+  },
+  air_quality_index: {
+    domainFamily: 'environment',
+    kaggleSlugs: [],
+    uciIds: [],
+    huggingfaceIds: ['dheeraj765/air-quality-index-delhi'],
+    searchTerms: ['air quality index pollution']
+  },
+  traffic_accident_data: {
+    domainFamily: 'transport',
+    kaggleSlugs: ['usmanrazaTraffic/road-traffic-accidents'],
+    uciIds: [],
+    huggingfaceIds: [],
+    searchTerms: ['traffic accident data']
+  },
+  mobile_price_classification: {
+    domainFamily: 'ecommerce',
     kaggleSlugs: [],
     uciIds: [],
     huggingfaceIds: [],
-    searchTerms: ['exam failure prediction']
+    searchTerms: ['mobile price classification']
   },
-  dropout_prediction: {
-    domainFamily: 'education',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['student dropout prediction']
-  },
-  online_learning: {
-    domainFamily: 'education',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['online learning engagement']
-  },
-  // AI/NLP Extensions
-  sentiment_analysis: {
+  fake_news_detection: {
     domainFamily: 'nlp_classification',
+    kaggleSlugs: ['clic02/fake-news', 'raj89323/fake_news_detection'],
+    huggingfaceIds: ['mteb/fake-news'],
+    searchTerms: ['fake news detection']
+  },
+loan_default_risk: {
+    domainFamily: 'financial',
+    kaggleSlugs: ['laotse/credit-risk-dataset'],
+    uciIds: [],
+    huggingfaceIds: [],
+    searchTerms: ['loan default risk prediction']
+  },
+  ecommerce_customer_behavior: {
+    domainFamily: 'ecommerce',
     kaggleSlugs: [],
     uciIds: [],
     huggingfaceIds: [],
-    searchTerms: ['sentiment analysis']
+    searchTerms: ['ecommerce customer behavior']
   },
-  text_summarization: {
-    domainFamily: 'nlp_classification',
+  traffic_accident_data: {
+    domainFamily: 'transport',
+    kaggleSlugs: [],
+    uciIds: [],
+    huggingfaceIds: ['usmanraza/road-traffic-accidents'],
+    searchTerms: ['traffic accident data']
+  },
+  mobile_price_classification: {
+    domainFamily: 'ecommerce',
     kaggleSlugs: [],
     uciIds: [],
     huggingfaceIds: [],
-    searchTerms: ['text summarization']
+    searchTerms: ['mobile price classification phone']
   },
-  spam_detection: {
-    domainFamily: 'nlp_classification',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['spam detection']
-  },
-  emotion_detection: {
-    domainFamily: 'nlp_classification',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['emotion detection']
-  },
-  // HR Domain Extensions
-  resume_screening: {
-    domainFamily: 'hr',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['resume screening']
-  },
-  job_recommendation: {
-    domainFamily: 'hr',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['job recommendation']
-  },
-  promotion_prediction: {
-    domainFamily: 'hr',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['promotion eligibility']
-  },
-  employee_engagement: {
-    domainFamily: 'hr',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['employee engagement analysis']
-  },
-  interview_success: {
-    domainFamily: 'hr',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['interview success prediction']
-  },
-  // Transport Domain Extensions
-  delivery_time: {
+  // Fallback - will search dynamically if no data found
+  traffic_accident: {
     domainFamily: 'transport',
     kaggleSlugs: [],
     uciIds: [],
     huggingfaceIds: [],
-    searchTerms: ['delivery time estimation']
+    searchTerms: ['traffic accident road']
   },
-  route_optimization: {
-    domainFamily: 'transport',
+  mobile_price: {
+    domainFamily: 'ecommerce',
     kaggleSlugs: [],
     uciIds: [],
     huggingfaceIds: [],
-    searchTerms: ['route optimization']
+    searchTerms: ['mobile price phone']
   },
-  vehicle_accident: {
-    domainFamily: 'transport',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['vehicle accident prediction']
-  },
-  ride_cancellation: {
-    domainFamily: 'transport',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['ride cancellation']
-  },
-  // Cybersecurity Domain
-  phishing_detection: {
-    domainFamily: 'cybersecurity',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['phishing detection']
-  },
-  malware_detection: {
-    domainFamily: 'cybersecurity',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['malware detection']
-  },
-  network_intrusion: {
-    domainFamily: 'cybersecurity',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['network intrusion detection']
-  },
-  // Social Media Domain
-  post_engagement: {
-    domainFamily: 'social_media',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['post engagement prediction']
-  },
-  content_virality: {
-    domainFamily: 'social_media',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['content virality prediction']
-  },
-  influencer_ranking: {
-    domainFamily: 'social_media',
-    kaggleSlugs: [],
-    uciIds: [],
-    huggingfaceIds: [],
-    searchTerms: ['influencer ranking']
-  }
 };
 
 function detectDomain(topic) {

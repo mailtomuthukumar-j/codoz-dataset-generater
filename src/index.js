@@ -16,11 +16,28 @@ const logger = require('./utils/logger');
 const { setLevel } = logger;
 const cache = require('./utils/cache');
 
-// Predefined topics - return real data
+// Predefined topics - return real data with proper schema mapping
 const PREDEFINED_TOPICS = [
-  'iris', 'wine', 'heart_disease', 'diabetes', 'breast_cancer',
-  'heart_failure', 'pima', 'student', 'customer_churn', 'fraud',
-  'loan', 'attrition', 'titanic', 'mnist', 'cifar'
+  'iris', 'iris_flower',
+  'wine', 'wine_quality',
+  'heart_disease', 'heart_failure',
+  'diabetes', 'pima',
+  'breast_cancer',
+  'student', 'student_performance',
+  'house_price', 'house_price_prediction',
+  'stock', 'stock_market', 'stock_market_data',
+  'bank_loan', 'bank_loan_approval',
+  'fraud', 'credit_card_fraud',
+  'customer_churn',
+  'sales', 'sales_forecasting',
+  'weather', 'weather_prediction',
+  'crypto', 'cryptocurrency', 'cryptocurrency_price',
+  'air_quality', 'air_quality_index',
+  'traffic', 'traffic_accident',
+  'mobile', 'mobile_price',
+  'fake_news', 'fake_news_detection',
+  'loan_default', 'loan_default_risk',
+  'ecommerce', 'ecommerce_customer_behavior'
 ];
 
 function isPredefinedTopic(topic) {
