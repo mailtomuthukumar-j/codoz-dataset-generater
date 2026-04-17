@@ -10,39 +10,58 @@ require('./utils/env');
 const readline = require('readline');
 const { run, getAvailableTopics, checkSources } = require('./index');
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+let rl = null;
 
 function question(query) {
+  if (!rl) {
+    rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+  }
   return new Promise(resolve => rl.question(query, resolve));
+}
+
+function closeReadline() {
+  if (rl) {
+    rl.close();
+    rl = null;
+  }
+}
+
+function printBanner() {
+  console.log('\n╔══════════════════════════════════════════════════════════╗');
+  console.log('║           CODOZ · REAL DATA ENGINE                      ║');
+  console.log('║   Fetch real datasets from Kaggle, UCI, HuggingFace     ║');
+  console.log('╚══════════════════════════════════════════════════════════╝\n');
 }
 
 async function main() {
   const args = process.argv.slice(2);
   
-  if (args.length === 0) {
-    await interactiveMode();
-  } else if (args[0] === '--help' || args[0] === '-h' || args[0] === 'help') {
-    showHelp();
-  } else if (args[0] === 'topics') {
-    await listTopics();
-  } else if (args[0] === 'sources') {
-    await checkAvailableSources();
-  } else {
-    const options = parseArgs(args);
-    await run(options.topic, options);
+  try {
+    if (args.length === 0) {
+      await interactiveMode();
+    } else if (args[0] === '--help' || args[0] === '-h' || args[0] === 'help') {
+      showHelp();
+    } else if (args[0] === 'topics') {
+      await listTopics();
+    } else if (args[0] === 'sources') {
+      await checkAvailableSources();
+    } else {
+      const options = parseArgs(args);
+      await run(options.topic, options);
+    }
+  } catch (error) {
+    console.error('\nError:', error.message);
+    process.exit(1);
+  } finally {
+    closeReadline();
   }
-  
-  rl.close();
 }
 
 async function interactiveMode() {
-  console.log('\n╔══════════════════════════════════════════════════════════╗');
-  console.log('║           CODOZ · REAL DATA ENGINE                      ║');
-  console.log('║   Fetch real datasets from Kaggle, UCI, HuggingFace     ║');
-  console.log('╚══════════════════════════════════════════════════════════╝\n');
+  printBanner();
   
   const topic = await question('Enter dataset topic: ');
   
@@ -63,60 +82,61 @@ async function interactiveMode() {
     return;
   }
   
-  await run(topic.trim(), { size, format: fmt });
+  await run(topic.trim(), { size, format: fmt, silent: true });
+  
+  console.log('\n✓ Data fetched successfully!');
 }
 
 async function selectFormat() {
-  const formats = [
-    { name: 'JSON', value: 'json', description: 'JSON array format (default)' },
-    { name: 'CSV', value: 'csv', description: 'Comma-separated values' },
-    { name: 'JSONL', value: 'jsonl', description: 'JSON Lines (one object per line)' },
-    { name: 'TABULAR', value: 'tabular', description: 'Formatted table output' }
-  ];
+  const formats = ['JSON', 'CSV', 'JSONL', 'Tabular'];
+  const values = ['json', 'csv', 'jsonl', 'tabular'];
   
   let selectedIndex = 0;
   
   return new Promise((resolve) => {
-    const rl = readline.createInterface({
+    const promptRl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
       terminal: true
     });
     
     function render() {
-      rl.output.write('\x1B[2K');
-      rl.output.write('\x1B[0G');
-      rl.output.write('? Select dataset format:\n');
-      
+      console.log('\n? Select dataset format:');
       formats.forEach((format, index) => {
         if (index === selectedIndex) {
-          rl.output.write(`  \x1B[36m❯ ${format.name}\x1B[0m\n`);
+          console.log(`  \x1B[36m❯ ${format}\x1B[0m`);
         } else {
-          rl.output.write(`    ${format.name}\n`);
+          console.log(`    ${format}`);
         }
       });
-      
-      rl.output.write('\n  \x1B[90mUse ↑↓ arrows to select, Enter to confirm\x1B[0m');
-      rl.output.write('\x1B[2K');
-      rl.output.write('\x1B[0G');
+    }
+    
+    function clear() {
+      readline.moveCursor(process.stdout, 0, -formats.length - 2);
+      readline.clearScreenDown(process.stdout);
     }
     
     render();
     
     function onKeypress(s, key) {
-      if (key.name === 'up') {
+      if (key.name === 'up' || key.name === 'w') {
         selectedIndex = (selectedIndex - 1 + formats.length) % formats.length;
+        clear();
         render();
-      } else if (key.name === 'down') {
+      } else if (key.name === 'down' || key.name === 's') {
         selectedIndex = (selectedIndex + 1) % formats.length;
+        clear();
         render();
       } else if (key.name === 'return' || key.name === 'enter') {
-        readline.moveCursor(process.stdout, 0, -5);
-        readline.clearScreenDown(process.stdout);
-        console.log(`Selected: ${formats[selectedIndex].name}`);
-        rl.close();
         process.stdin.removeListener('keypress', onKeypress);
-        resolve(formats[selectedIndex].value);
+        clear();
+        console.log(`Selected: ${formats[selectedIndex]}`);
+        promptRl.close();
+        resolve(values[selectedIndex]);
+      } else if (key.name === 'escape') {
+        selectedIndex = 0;
+        clear();
+        render();
       }
     }
     
@@ -173,13 +193,13 @@ USAGE:
   npx codoz help
 
 EXAMPLES:
-  npx codoz "heart disease" --size 500 --format csv
+  npx codoz heart_disease --size 500 --format csv
   npx codoz diabetes --size 100
-  npx codoz customer churn --format jsonl
+  npx codoz iris --format jsonl
 
 OPTIONS:
   --size <n>       Number of rows to fetch (default: 100)
-  --format <fmt>  Output format: json, csv, jsonl, tabular (default: json)
+  --format <fmt>  Output format: json, csv, jsonl, tabular
 
 COMMANDS:
   topics           List available dataset topics
@@ -192,12 +212,8 @@ DATA SOURCES:
   • HuggingFace Datasets (requires HUGGINGFACE_API_KEY in .env)
   • Data.gov
 
-CONFIGURATION:
-  Create a .env file with your API keys:
-  - HUGGINGFACE_API_KEY=your_key
-
 OUTPUT:
-  Datasets are saved to ./codoz set/<topic>.<format>
+  Datasets are saved to ./codoz_set/<topic>.<format>
 `);
 }
 
@@ -229,7 +245,10 @@ function parseArgs(args) {
   return options;
 }
 
-main().catch(error => {
-  console.error('Error:', error.message);
-  process.exit(1);
+process.on('exit', () => closeReadline());
+process.on('SIGINT', () => {
+  closeReadline();
+  process.exit(0);
 });
+
+main();
