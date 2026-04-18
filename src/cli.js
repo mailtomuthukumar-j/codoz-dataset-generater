@@ -93,7 +93,7 @@ async function main() {
       ? format.toLowerCase() 
       : 'json';
 
-    const confirm = await question('Process data? (y/n): ');
+    const confirm = await question('Generate data? (y/n): ');
     if (confirm.toLowerCase() !== 'y') {
       console.log('Operation cancelled');
       rl.close();
@@ -109,20 +109,23 @@ async function main() {
     });
 
     console.log(`Data saved to: ${result.output.filepath}`);
+    console.log(`Data source: ${result.dataSource}`);
 
   } catch (error) {
     const errorMsg = error.message || '';
     
     if (errorMsg.includes('No data available') || errorMsg.includes('No tabular data')) {
-      console.log('No data found for this topic. Try: iris, diabetes, heart_disease, stock, medical');
+      console.log('Error: No data found for this topic');
+      console.log('Tip: Try: heart_disease_prediction, diabetes_prediction, stock_market_prediction');
     } else if (errorMsg.includes('credentials') || errorMsg.includes('API key')) {
-      console.log('API key missing. Set HUGGINGFACE_API_KEY in .env file');
+      console.log('Error: API key missing');
+      console.log('Tip: Set HUGGINGFACE_API_KEY in .env file');
     } else if (errorMsg.includes('timeout') || errorMsg.includes('ETIMEDOUT')) {
-      console.log('Connection timeout. Check your internet and try again');
+      console.log('Error: Connection timeout. Check your internet');
     } else if (errorMsg.includes('not found') || errorMsg.includes('404')) {
-      console.log('Dataset not found. Try a different topic');
+      console.log('Error: Dataset not found');
     } else {
-      console.log('Something went wrong. Try again');
+      console.log('Error:', errorMsg.substring(0, 80));
     }
     rl.close();
     process.exit(1);

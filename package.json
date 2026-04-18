@@ -1,18 +1,19 @@
 {
   "name": "codoz-data",
-  "version": "2.0.5",
-  "description": "CODOZ - Real Data Engine. Fetch real-world datasets from Kaggle, UCI, HuggingFace",
+  "version": "2.1.0",
+  "description": "CODOZ - Real Data Engine. Fetch real-world ML datasets from Kaggle, UCI, HuggingFace",
   "main": "src/index.js",
   "type": "commonjs",
   "bin": {
-    "codoz": "./src/cli.js",
-    "codoz-data": "./src/cli.js"
+    "codoz": "cli.js",
+    "codoz-data": "cli.js"
   },
+  "preferGlobal": true,
   "scripts": {
-    "start": "node src/cli.js",
-    "generate": "node src/cli.js",
-    "topics": "node src/cli.js topics",
-    "sources": "node src/cli.js sources",
+    "start": "node cli.js",
+    "generate": "node cli.js",
+    "topics": "node cli.js topics",
+    "sources": "node cli.js sources",
     "test": "node test/index.test.js"
   },
   "keywords": [
