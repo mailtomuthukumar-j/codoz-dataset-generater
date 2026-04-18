@@ -9,17 +9,14 @@ const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
 
-// Set log level BEFORE requiring index (silence all modules)
 const { setLevel } = require('./utils/logger');
 setLevel('silent');
 
 const { checkApiKeys } = require('./utils/env');
 const { run } = require('./index');
 
-// Check API keys first
 function checkKeys() {
   const { status, missing, allPresent } = checkApiKeys();
-  
   if (!allPresent) {
     console.log('API Keys Required:');
     console.log('  - HuggingFace: Set HUGGINGFACE_API_KEY in .env');
@@ -38,45 +35,95 @@ function question(query) {
   return new Promise(resolve => rl.question(query, resolve));
 }
 
+async function selectFormat() {
+  const formats = ['json', 'csv', 'jsonl'];
+  let selected = 0;
+  
+  console.log('Enter data format:');
+  for (let i = 0; i < formats.length; i++) {
+    const marker = i === selected ? '>' : ' ';
+    console.log(`${marker} ${formats[i]}`);
+  }
+  
+  return new Promise(resolve => {
+    const onKey = (chunk) => {
+      const ch = chunk;
+      if (ch === '\u001B[B') { // down
+        selected = (selected + 1) % formats.length;
+        draw();
+      } else if (ch === '\u001B[A') { // up  
+        selected = (selected - 1 + formats.length) % formats.length;
+        draw();
+      } else if (ch === '\r' || ch === '\n') {
+        process.stdin.removeListener('data', onKey);
+        resolve(formats[selected]);
+      }
+    };
+    const draw = () => {
+      for (let i = 0; i < formats.length; i++) {
+        process.stdout.moveCursor(0, -1);
+        readline.clearLine(process.stdout, 0);
+        const marker = i === selected ? '>' : ' ';
+        console.log(`${marker} ${formats[i]}`);
+      }
+      process.stdout.moveCursor(0, -(formats.length - 1));
+    };
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', onKey);
+  });
+}
+
+function parseArgs(args) {
+  const options = { topic: '', size: 100, format: 'json' };
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith('--')) {
+      const key = arg.slice(2);
+      if (key === 'size') options.size = parseInt(args[++i]) || 100;
+      else if (key === 'format') options.format = args[++i] || 'json';
+    } else if (!arg.startsWith('-')) {
+      options.topic = arg;
+    }
+  }
+  return options;
+}
+
 async function main() {
+  checkKeys();
+  
   const args = process.argv.slice(2);
   
-  // If command line args provided, use them directly
+  // Direct command mode
   if (args.length > 0) {
-    const options = parseArgs(args);
-    if (options.topic) {
+    const opts = parseArgs(args);
+    if (opts.topic) {
       try {
-        const result = await run(options.topic, {
-          size: options.size,
-          format: options.format,
+        const result = await run(opts.topic, {
+          size: opts.size,
+          format: opts.format,
           silent: true
         });
         console.log(`Data saved to: ${result.output.filepath}`);
         console.log(`Data source: ${result.dataSource}`);
         return;
       } catch (error) {
-        const errorMsg = error.message || '';
-        
-        if (errorMsg.includes('No data available') || errorMsg.includes('No tabular data')) {
-          console.log('Error: No data found for this topic');
-          console.log('Tip: Try topics like: heart_disease, diabetes, breast_cancer, stock, fraud, churn');
-        } else if (errorMsg.includes('credentials') || errorMsg.includes('API key')) {
+        const err = error.message || '';
+        if (err.includes('No data')) {
+          console.log('Error: No data found');
+          console.log('Tip: Try: heart_disease, diabetes, stock_market');
+        } else if (err.includes('credentials')) {
           console.log('Error: API key missing');
-          console.log('Tip: Set HUGGINGFACE_API_KEY in .env file');
-        } else if (errorMsg.includes('timeout')) {
-          console.log('Error: Connection timeout. Check your internet connection');
-        } else if (errorMsg.includes('not found') || errorMsg.includes('404')) {
-          console.log('Error: Dataset not found');
-        } else if (errorMsg.includes('403') || errorMsg.includes('forbidden')) {
-          console.log('Error: Access forbidden. Check your API credentials');
         } else {
-          console.log('Error:', errorMsg.substring(0, 100));
+          console.log('Error:', err.substring(0, 60));
         }
         process.exit(1);
       }
     }
   }
-
+  
+  // Interactive mode
   try {
     const topic = await question('Enter data topic: ');
     if (!topic.trim()) {
@@ -88,10 +135,7 @@ async function main() {
     const sizeInput = await question('Enter data size: ');
     const size = parseInt(sizeInput) || 100;
 
-    const format = await question('Enter data format: ');
-    const selectedFormat = ['json', 'csv', 'jsonl'].includes(format.toLowerCase()) 
-      ? format.toLowerCase() 
-      : 'json';
+    const format = await selectFormat();
 
     const confirm = await question('Now proceed: (Y/N): ');
     if (confirm.toLowerCase() !== 'y') {
@@ -104,7 +148,7 @@ async function main() {
 
     const result = await run(topic.trim(), { 
       size, 
-      format: selectedFormat,
+      format,
       silent: true
     });
 
@@ -112,41 +156,17 @@ async function main() {
     console.log(`Data source: ${result.dataSource}`);
 
   } catch (error) {
-    const errorMsg = error.message || '';
-    
-    if (errorMsg.includes('No data available') || errorMsg.includes('No tabular data')) {
-      console.log('Error: No data found for this topic');
-      console.log('Tip: Try: heart_disease_prediction, diabetes_prediction, stock_market_prediction');
-    } else if (errorMsg.includes('credentials') || errorMsg.includes('API key')) {
+    const err = error.message || '';
+    if (err.includes('No data')) {
+      console.log('Error: No data found');
+    } else if (err.includes('credentials')) {
       console.log('Error: API key missing');
-      console.log('Tip: Set HUGGINGFACE_API_KEY in .env file');
-    } else if (errorMsg.includes('timeout') || errorMsg.includes('ETIMEDOUT')) {
-      console.log('Error: Connection timeout. Check your internet');
-    } else if (errorMsg.includes('not found') || errorMsg.includes('404')) {
-      console.log('Error: Dataset not found');
     } else {
-      console.log('Error:', errorMsg.substring(0, 80));
+      console.log('Error:', err.substring(0, 60));
     }
     rl.close();
     process.exit(1);
   }
-}
-
-function parseArgs(args) {
-  const options = { topic: '', size: 100, format: 'json' };
-  
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg.startsWith('--')) {
-      const key = arg.slice(2);
-      if (key === 'size') options.size = parseInt(args[++i]) || 100;
-      else if (key === 'format') options.format = args[++i] || 'json';
-    } else if (!arg.startsWith('-')) {
-      options.topic = arg;
-    }
-  }
-  
-  return options;
 }
 
 main();
