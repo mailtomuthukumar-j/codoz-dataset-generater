@@ -85,6 +85,47 @@ function isDataGovAvailable() {
   return true;
 }
 
+function getKaggleCredentials() {
+  const homeDir = nodeProcess.env.HOME || nodeProcess.env.USERPROFILE || '';
+  const kagglePath = nodePath.join(homeDir, '.kaggle', 'kaggle.json');
+  
+  if (nodeFs.existsSync(kagglePath)) {
+    try {
+      const content = nodeFs.readFileSync(kagglePath, 'utf8');
+      return JSON.parse(content);
+    } catch {
+      return null;
+    }
+  }
+  
+  if (nodeProcess.env.KAGGLE_USERNAME && nodeProcess.env.KAGGLE_KEY) {
+    return {
+      username: nodeProcess.env.KAGGLE_USERNAME,
+      key: nodeProcess.env.KAGGLE_KEY
+    };
+  }
+  
+  return null;
+}
+
+function getHuggingFaceKey() {
+  return nodeProcess.env.HUGGINGFACE_API_KEY || null;
+}
+
+function checkApiKeys() {
+  const status = {
+    kaggle: isKaggleAvailable(),
+    huggingface: isHuggingFaceAvailable(),
+    dataGov: isDataGovAvailable()
+  };
+  
+  const missing = [];
+  if (!status.kaggle) missing.push('KAGGLE_USERNAME/KAGGLE_KEY');
+  if (!status.huggingface) missing.push('HUGGINGFACE_API_KEY');
+  
+  return { status, missing, allPresent: missing.length === 0 };
+}
+
 loadEnv();
 
 module.exports = {
@@ -93,5 +134,8 @@ module.exports = {
   getOutputFolder,
   isKaggleAvailable,
   isHuggingFaceAvailable,
-  isDataGovAvailable
+  isDataGovAvailable,
+  getKaggleCredentials,
+  getHuggingFaceKey,
+  checkApiKeys
 };

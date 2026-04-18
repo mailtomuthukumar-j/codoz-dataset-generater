@@ -13,7 +13,7 @@
     "generate": "node src/cli.js",
     "topics": "node src/cli.js topics",
     "sources": "node src/cli.js sources",
-    "test": "node src/cli.js heart_disease --size 10"
+    "test": "node test/index.test.js"
   },
   "keywords": [
     "dataset",
@@ -36,5 +36,8 @@
   },
   "engines": {
     "node": ">=16.0.0"
+  },
+  "devDependencies": {
+    "mocha": "^11.7.5"
   }
 }

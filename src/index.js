@@ -8,6 +8,7 @@ const sourceFinder = require('./core/source-finder');
 const fetcher = require('./core/fetcher');
 const formatter = require('./core/formatter');
 const schemaMapper = require('./core/schema-mapper');
+const fallbackFetcher = require('./core/fallback-fetcher');
 const uciSource = require('./sources/uci');
 const kaggleSource = require('./sources/kaggle');
 const huggingfaceSource = require('./sources/huggingface');
@@ -96,8 +97,11 @@ async function run(topic, options = {}) {
   
   let allRows = [];
   const sourcesUsed = {};
+  let dataSource = 'none'; // 'real', 'search', 'synthetic'
   
-  // Try predefined sources first
+  // ============================================================
+  // STEP 1: Try to get REAL data from configured sources
+  // ============================================================
   for (const src of sourceInfo.recommended) {
     try {
       let result = null;
@@ -115,58 +119,83 @@ async function run(topic, options = {}) {
       if (result && result.rows && result.rows.length > 0) {
         allRows.push(...result.rows);
         sourcesUsed[result.source] = { count: result.rows.length };
+        dataSource = 'real';
+        break; // Found real data, stop here
       }
     } catch (error) {
       // Skip failed sources silently
     }
   }
   
-// If no data from predefined sources, try dynamic search on HuggingFace
+  // ============================================================
+  // STEP 2: If no real data, try dynamic search on HuggingFace
+  // ============================================================
   if (allRows.length === 0) {
     try {
-      logger.info(`Searching HuggingFace for: ${topic}`);
+      // Get main topic keywords
+      const mainKeywords = topic.toLowerCase()
+        .replace(/prediction|analysis|forecast|detection|classification|risk|system|dataset/gi, '')
+        .replace(/[^a-z0-9]/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(k => k.length > 2);
       
-      // Try multiple search variations
-      const searchTerms = [
-        topic.trim(),
-        topic.split(' ')[0], // first word only
-        topic.replace(/prediction|analysis|forecast/gi, '').trim()
-      ];
-      
-      for (const term of searchTerms) {
-        if (!term || term.length < 2) continue;
+      if (mainKeywords.length > 0 && mainKeywords[0].length >= 3) {
+        const searchTerm = mainKeywords.join(' ');
+        const searchResults = await huggingfaceSource.search(searchTerm);
         
-        const searchResults = await huggingfaceSource.search(term);
+        // Filter results containing topic keywords
+        const matchingResults = searchResults
+          .filter(r => {
+            const idLower = r.id.toLowerCase();
+            return mainKeywords.some(kw => idLower.includes(kw));
+          })
+          .sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
         
-        if (searchResults && searchResults.length > 0) {
-          const sortedResults = searchResults
-            .filter(d => d.downloads > 5)
-            .sort((a, b) => b.downloads - a.downloads);
-          
-          for (const dataset of sortedResults.slice(0, 30)) {
-            try {
-              const result = await huggingfaceSource.fetch(dataset.id, options);
-              
-              if (result && result.rows && result.rows.length > 0) {
-                allRows.push(...result.rows);
-                sourcesUsed[result.source] = { count: result.rows.length };
-                break;
-              }
-            } catch {
-              // Try next dataset
+        // Try fetching from matching results
+        for (const dataset of matchingResults.slice(0, 5)) {
+          try {
+            const result = await huggingfaceSource.fetch(dataset.id, options);
+            
+            if (result && result.rows && result.rows.length > 0) {
+              allRows.push(...result.rows);
+              sourcesUsed['huggingface_search'] = { count: result.rows.length };
+              dataSource = 'search';
+              break;
             }
+          } catch {
+            // Try next dataset
           }
         }
-        
-        if (allRows.length > 0) break;
       }
-    } catch {
-      // Search failed
+    } catch (error) {
+      logger.error('Search error:', error.message);
     }
   }
   
+  // ============================================================
+  // STEP 3: If still no data, generate SYNTHETIC structured data
+  // ============================================================
   if (allRows.length === 0) {
-    throw new Error('No data available for this topic');
+    try {
+      logger.info('Generating synthetic data for:', topic);
+      const fallbackResult = await fallbackFetcher.fetchWithFallback(topic, topicInfo, options);
+      
+      if (fallbackResult && fallbackResult.rows && fallbackResult.rows.length > 0) {
+        allRows.push(...fallbackResult.rows);
+        sourcesUsed['synthetic'] = { count: fallbackResult.rows.length };
+        dataSource = 'synthetic';
+      }
+    } catch (error) {
+      logger.error('Synthetic generation error:', error.message);
+    }
+  }
+  
+  // ============================================================
+  // Final check - if still no data, throw error
+  // ============================================================
+  if (allRows.length === 0) {
+    throw new Error(`No data available for "${topic}". Try: heart_disease, diabetes, breast_cancer, stock, fraud, churn`);
   }
 
   let finalRows = allRows.slice(0, size);
@@ -175,12 +204,12 @@ async function run(topic, options = {}) {
   if (isPredefined) {
     finalRows = schemaMapper.mapDataset(topic, finalRows);
   }
-  
+
   // Cache the results
   if (allRows.length > 0 && !noCache) {
     cache.set(cacheKey, allRows);
   }
-  
+
   const formatted = formatter.formatDataset({ rows: finalRows }, format, {
     topic: topic.replace(/\s+/g, '_'),
     pretty: true
@@ -189,7 +218,7 @@ async function run(topic, options = {}) {
   const saved = formatter.saveToFile(formatted.content, formatted.filename, {
     format
   });
-  
+
   if (!silent) {
     console.log('\n╔══════════════════════════════════════════════════════════╗');
     console.log('║              FETCH COMPLETE                            ║');
@@ -197,19 +226,21 @@ async function run(topic, options = {}) {
     console.log(`\n  Output: ${saved.filepath}`);
     console.log(`  Rows: ${finalRows.length}`);
     console.log(`  Format: ${format}`);
+    console.log(`\n  Data Source: ${dataSource}`);
     console.log('\n  Data Sources:');
     Object.entries(sourcesUsed).forEach(([name, info]) => {
       console.log(`    • ${name}: ${info.count} records`);
     });
     console.log('');
   }
-  
+
   return {
     success: true,
     output: saved,
     rowCount: finalRows.length,
     format,
-    qualityScore: 100,
+    qualityScore: dataSource === 'real' ? 100 : (dataSource === 'search' ? 85 : 70),
+    dataSource,
     data: finalRows,
     sources: sourcesUsed
   };

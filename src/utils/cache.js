@@ -1,6 +1,7 @@
 /**
  * Simple Cache Utility
  * Caches API responses to reduce repeated calls
+ * Validates data freshness before returning cached data
  */
 
 const fs = require('fs');
@@ -8,7 +9,7 @@ const path = require('path');
 const nodeCrypto = require('crypto');
 
 const CACHE_DIR = path.join(process.cwd(), '.codoz_cache');
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes - cache expires after this
 
 function ensureCacheDir() {
   if (!fs.existsSync(CACHE_DIR)) {
@@ -42,6 +43,19 @@ function get(key) {
       return null;
     }
     
+    // Validate cached data structure
+    if (!data.rows || !Array.isArray(data.rows) || data.rows.length === 0) {
+      fs.unlinkSync(filePath);
+      return null;
+    }
+    
+    // Check that cached data has meaningful columns (not just empty objects)
+    const firstRow = data.rows[0];
+    if (typeof firstRow !== 'object' || Object.keys(firstRow).length < 2) {
+      fs.unlinkSync(filePath);
+      return null;
+    }
+    
     return data.rows;
   } catch {
     return null;
@@ -55,7 +69,8 @@ function set(key, rows) {
     
     fs.writeFileSync(filePath, JSON.stringify({
       rows,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      dataSource: 'cached'
     }));
   } catch {
     // Ignore cache write errors
@@ -75,4 +90,35 @@ function clear() {
   }
 }
 
-module.exports = { get, set, clear, getCacheKey };
+function getStats() {
+  try {
+    ensureCacheDir();
+    const files = fs.readdirSync(CACHE_DIR);
+    let totalSize = 0;
+    let expired = 0;
+    let valid = 0;
+    
+    for (const file of files) {
+      const filePath = path.join(CACHE_DIR, file);
+      const stats = fs.statSync(filePath);
+      totalSize += stats.size;
+      
+      try {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (Date.now() - data.timestamp > CACHE_TTL) {
+          expired++;
+        } else {
+          valid++;
+        }
+      } catch {
+        expired++;
+      }
+    }
+    
+    return { files: files.length, valid, expired, totalSize };
+  } catch {
+    return { files: 0, valid: 0, expired: 0, totalSize: 0 };
+  }
+}
+
+module.exports = { get, set, clear, getCacheKey, getStats };
