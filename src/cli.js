@@ -88,12 +88,12 @@ async function main() {
     const sizeInput = await question('Enter data size: ');
     const size = parseInt(sizeInput) || 100;
 
-    const format = await question('Enter data format (json/csv/jsonl): ');
+    const format = await question('Enter data format: ');
     const selectedFormat = ['json', 'csv', 'jsonl'].includes(format.toLowerCase()) 
       ? format.toLowerCase() 
       : 'json';
 
-    const confirm = await question('Generate data? (y/n): ');
+    const confirm = await question('Now proceed: (Y/N): ');
     if (confirm.toLowerCase() !== 'y') {
       console.log('Operation cancelled');
       rl.close();
